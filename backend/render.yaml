@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: gestion-talleres-backend
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: DATABASE_URL
+        fromConfig: DATABASE_URL
+      - key: PORT
+        value: 3001
+      - key: FRONTEND_ORIGIN
+        sync: false
