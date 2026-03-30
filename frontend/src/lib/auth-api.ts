@@ -430,6 +430,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
     | null;
 
   if (!response.ok) {
+    console.error(`[API Error] ${response.status} ${response.statusText}`, body);
     throw new Error(body?.message ?? "No se pudo completar la solicitud.");
   }
 
@@ -437,27 +438,39 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 async function authorizedGet<T>(path: string, token: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
+  const url = `${API_BASE_URL}${path}`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
 
-  return parseResponse<T>(response);
+    return parseResponse<T>(response);
+  } catch (error) {
+    console.error(`[Fetch GET Error] ${url}:`, error);
+    throw error;
+  }
 }
 
 async function authorizedPost<T>(path: string, token: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const url = `${API_BASE_URL}${path}`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
 
-  return parseResponse<T>(response);
+    return parseResponse<T>(response);
+  } catch (error) {
+    console.error(`[Fetch POST Error] ${url}:`, error);
+    throw error;
+  }
 }
 
 export function getStoredStaffToken() {
@@ -479,13 +492,21 @@ export function clearStoredClientToken() {
 }
 
 export async function loginWithCredentials(email: string, password: string, tenantId?: string) {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, tenantId }),
-  });
+  const url = `${API_BASE_URL}/auth/login`;
+  console.log(`[Auth API] Intentando login en: ${url}`);
 
-  return parseResponse<LoginResponse>(response);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, tenantId }),
+    });
+
+    return parseResponse<LoginResponse>(response);
+  } catch (error) {
+    console.error(`[Auth API Error] Fallo al conectar con ${url}:`, error);
+    throw error;
+  }
 }
 
 export async function fetchSession(token: string) {
