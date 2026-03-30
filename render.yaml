@@ -3,7 +3,7 @@ services:
     name: gestion-talleres-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install && chmod +x ./node_modules/.bin/prisma && ./node_modules/.bin/prisma generate && npm run build
+    buildCommand: npm install && npm run prisma:generate && npm run build
     startCommand: npm run start:prod
     envVars:
       - key: DATABASE_URL
