@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #07111f;
-  --foreground: #ecf3ff;
-  --surface: #0d1728;
-  --surface-2: #132036;
-  --line: rgba(148, 163, 184, 0.18);
-  --brand-blue: #3b82f6;
-  --brand-amber: #f59e0b;
+  --background: #190b47;
+  --foreground: #ffffff;
+  --surface: #21105d;
+  --surface-2: #2400a2;
+  --line: rgba(138, 138, 128, 0.26);
+  --brand-blue: #2400a2;
+  --brand-amber: #ffe707;
+  --brand-neutral: #8a8a80;
+  --brand-accent: #474211;
   --font-sans: "Aptos", "Segoe UI Variable Text", "Segoe UI", sans-serif;
   --font-display: "Bahnschrift", "Aptos Display", "Arial Narrow", sans-serif;
 }
@@ -19,16 +21,16 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #07111f;
-    --foreground: #ecf3ff;
+    --background: #190b47;
+    --foreground: #ffffff;
   }
 }
 
 html {
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 28%),
-    radial-gradient(circle at 85% 15%, rgba(245, 158, 11, 0.08), transparent 22%),
-    linear-gradient(180deg, #08101d 0%, #0a1322 40%, #07111f 100%);
+    radial-gradient(circle at 12% 18%, rgba(255, 231, 7, 0.12), transparent 20%),
+    radial-gradient(circle at 85% 14%, rgba(36, 0, 162, 0.32), transparent 30%),
+    linear-gradient(140deg, #120633 0%, #190b47 38%, #2400a2 100%);
 }
 
 body {
@@ -51,29 +53,47 @@ a {
 }
 
 ::selection {
-  background: rgba(245, 158, 11, 0.28);
-  color: #fff7ed;
+  background: rgba(255, 231, 7, 0.3);
+  color: #190b47;
 }
 
 .panel-shell {
   border: 1px solid var(--line);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
     var(--surface);
   box-shadow:
-    0 18px 40px rgba(3, 7, 18, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 18px 40px rgba(10, 4, 28, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .panel-shell-strong {
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(138, 138, 128, 0.24);
   background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 30%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    radial-gradient(circle at top right, rgba(255, 231, 7, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
     var(--surface-2);
   box-shadow:
-    0 24px 50px rgba(2, 6, 23, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 28px 60px rgba(10, 4, 28, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.auth-shell {
+  background:
+    radial-gradient(circle at top left, rgba(255, 231, 7, 0.1), transparent 22%),
+    radial-gradient(circle at 82% 12%, rgba(255, 255, 255, 0.08), transparent 18%),
+    linear-gradient(135deg, #120633 0%, #190b47 44%, #2400a2 100%);
+}
+
+.auth-card {
+  border: 1px solid rgba(138, 138, 128, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    rgba(36, 0, 162, 0.72);
+  box-shadow:
+    0 28px 70px rgba(8, 4, 27, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
 }
 
 .card-hover {

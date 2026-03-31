@@ -419,7 +419,7 @@ export interface PlatformFinanceSummary {
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
-  "http://localhost:3001";
+  "http://localhost:3000";
 
 const STAFF_TOKEN_KEY = "81cc_session_token";
 export const CLIENT_TOKEN_KEY = "81cc_client_session_token";
