@@ -509,6 +509,26 @@ export async function loginWithCredentials(email: string, password: string, tena
   }
 }
 
+export async function requestPasswordReset(email: string) {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  return parseResponse<{ ok: boolean; devToken?: string }>(response);
+}
+
+export async function submitPasswordReset(token: string, password: string) {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+
+  return parseResponse<{ ok: boolean }>(response);
+}
+
 export async function fetchSession(token: string) {
   return authorizedGet<{ user: SessionUser }>("/auth/session", token);
 }

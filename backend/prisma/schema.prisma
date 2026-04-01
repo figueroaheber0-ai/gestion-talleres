@@ -9,46 +9,48 @@ datasource db {
 }
 
 model Tenant {
-  id               String          @id @default(uuid())
+  id               String   @id @default(uuid())
   name             String
-  maxCapacity      Int             @default(10)
-  subscriptionPlan String          @default("free")
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  maxCapacity      Int      @default(10)
+  subscriptionPlan String   @default("free")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  users            User[]
-  clients          Client[]
-  vehicles         Vehicle[]
-  appointments     Appointment[]
-  workOrders       WorkOrder[]
-  inventoryItems   InventoryItem[]
+  users          User[]
+  clients        Client[]
+  vehicles       Vehicle[]
+  appointments   Appointment[]
+  workOrders     WorkOrder[]
+  inventoryItems InventoryItem[]
 }
 
 model User {
-  id                String      @id @default(uuid())
-  tenantId          String
-  tenant            Tenant      @relation(fields: [tenantId], references: [id])
-  name              String
-  email             String
-  role              String      @default("mechanic")
-  passwordHash      String
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  mechanicWorkOrders WorkOrder[] @relation("MechanicWorkOrders")
-  sessions          Session[]
+  id                   String      @id @default(uuid())
+  tenantId             String
+  tenant               Tenant      @relation(fields: [tenantId], references: [id])
+  name                 String
+  email                String
+  role                 String      @default("mechanic")
+  passwordHash         String
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  mechanicWorkOrders   WorkOrder[] @relation("MechanicWorkOrders")
+  sessions             Session[]
 
   @@unique([tenantId, email])
 }
 
 model Client {
-  id            String              @id @default(uuid())
+  id            String               @id @default(uuid())
   tenantId      String
-  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+  tenant        Tenant               @relation(fields: [tenantId], references: [id])
   name          String
   phone         String?
   email         String?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
   vehicles      Vehicle[]
   portalAccount ClientPortalAccount?
   sessions      Session[]
@@ -58,11 +60,11 @@ model Client {
 
 model ClientPortalAccount {
   id           String   @id @default(uuid())
-  clientId      String   @unique
-  client        Client   @relation(fields: [clientId], references: [id])
-  passwordHash  String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  clientId     String   @unique
+  client       Client   @relation(fields: [clientId], references: [id])
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Vehicle {
@@ -84,18 +86,18 @@ model Vehicle {
 }
 
 model Appointment {
-  id         String    @id @default(uuid())
-  tenantId   String
-  tenant     Tenant    @relation(fields: [tenantId], references: [id])
-  vehicleId  String
-  vehicle    Vehicle   @relation(fields: [vehicleId], references: [id])
-  date       DateTime  @db.Date
-  time       String
-  reason     String
-  status     String    @default("pending")
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  workOrder  WorkOrder?
+  id        String     @id @default(uuid())
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  vehicleId String
+  vehicle   Vehicle    @relation(fields: [vehicleId], references: [id])
+  date      DateTime   @db.Date
+  time      String
+  reason    String
+  status    String     @default("pending")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  workOrder WorkOrder?
 }
 
 model WorkOrder {
@@ -122,12 +124,12 @@ model WorkOrder {
 
 model ClientUpdate {
   id          String    @id @default(uuid())
-  workOrderId  String
-  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id])
-  title        String
-  message      String    @db.Text
-  visibility   String    @default("client")
-  createdAt    DateTime  @default(now())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  title       String
+  message     String    @db.Text
+  visibility  String    @default("client")
+  createdAt   DateTime  @default(now())
 }
 
 model InventoryItem {
@@ -158,20 +160,20 @@ model WorkOrderPart {
 }
 
 model Session {
-  id         String    @id @default(uuid())
-  tokenHash  String    @unique
+  id         String   @id @default(uuid())
+  tokenHash  String   @unique
   actorType  String
   role       String
   email      String
   userId     String?
-  user       User?     @relation(fields: [userId], references: [id])
+  user       User?    @relation(fields: [userId], references: [id])
   clientId   String?
-  client     Client?   @relation(fields: [clientId], references: [id])
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  lastSeenAt DateTime  @default(now())
+  client     Client?  @relation(fields: [clientId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lastSeenAt DateTime @default(now())
   expiresAt  DateTime
-  active     Boolean   @default(true)
+  active     Boolean  @default(true)
   userAgent  String?
   ipAddress  String?
 }

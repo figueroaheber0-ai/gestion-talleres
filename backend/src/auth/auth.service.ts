@@ -1549,4 +1549,63 @@ export class AuthService {
       .map((part) => part[0]?.toUpperCase() ?? '')
       .join('');
   }
+
+  async forgotPassword(email: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const users = await this.prisma.user.findMany({
+      where: { email: normalizedEmail },
+    });
+
+    if (users.length === 0) {
+      return { ok: true };
+    }
+
+    const rawToken = generateSessionToken();
+
+    await Promise.all(
+      users.map((u) =>
+        this.prisma.user.update({
+          where: { id: u.id },
+          data: {
+            resetPasswordToken: rawToken,
+            resetPasswordExpires: new Date(Date.now() + 1000 * 60 * 60),
+          },
+        }),
+      ),
+    );
+
+    console.log(`\n[PASSWORD RESET] Recuperación de contraseña para ${email}\n[PASSWORD RESET] Enlace: /reset-password?token=${rawToken}\n`);
+
+    return { ok: true, devToken: process.env.NODE_ENV !== 'production' ? rawToken : undefined };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const users = await this.prisma.user.findMany({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: { gte: new Date() },
+      },
+    });
+
+    if (users.length === 0) {
+      throw new UnauthorizedException('El enlace expiró o es inválido.');
+    }
+
+    const passwordHash = hashPassword(newPassword);
+
+    await Promise.all(
+      users.map((u) =>
+        this.prisma.user.update({
+          where: { id: u.id },
+          data: {
+            passwordHash,
+            resetPasswordToken: null,
+            resetPasswordExpires: null,
+          },
+        }),
+      ),
+    );
+
+    return { ok: true };
+  }
 }
