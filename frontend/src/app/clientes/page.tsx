@@ -199,7 +199,7 @@ export default function ClientesPage() {
                 ["plate", "Patente"],
                 ["brand", "Marca"],
                 ["model", "Modelo"],
-                ["year", "Anio"],
+                ["year", "Año"],
                 ["reason", "Motivo del turno"],
                 ["date", "Fecha"],
                 ["time", "Hora"],

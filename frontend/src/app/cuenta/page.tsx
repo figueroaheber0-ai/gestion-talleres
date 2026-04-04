@@ -63,6 +63,15 @@ export default function CuentaPage() {
     return new Date(data.trialEndsAt).toLocaleDateString("es-AR");
   }, [data?.trialEndsAt]);
 
+  const dateCardLabel = data?.effectivePlan === "free" ? "Fin de prueba" : "Próxima renovación";
+  const dateCardValue = data?.effectivePlan === "free" ? trialDate ?? "-" : renewalDate;
+  const dateCardDetail =
+    data?.effectivePlan === "free"
+      ? "Sin cobro automático hasta contratar un plan"
+      : data?.autoRenew
+        ? "Renovación automática"
+        : "Renovación manual";
+
   const activatePlan = async (planCode: "starter" | "pro" | "enterprise") => {
     const token = getStoredStaffToken();
     if (!token) return;
@@ -131,7 +140,7 @@ export default function CuentaPage() {
           <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card label="Plan activo" value={data.effectivePlanLabel} detail={`Ciclo ${BILLING_LABEL[data.billingCycle]}`} />
             <Card label="Estado del contrato" value={STATUS_LABEL[data.contractStatus]} detail={`${data.remainingDays} días restantes`} />
-            <Card label="Próxima renovación" value={renewalDate} detail={data.autoRenew ? "Renovación automática" : "Renovación manual"} />
+            <Card label={dateCardLabel} value={dateCardValue} detail={dateCardDetail} />
             <Card label="Precio mensual" value={`$${data.monthlyPrice.toLocaleString("es-AR")}`} detail="Referencia de facturación" />
           </section>
 

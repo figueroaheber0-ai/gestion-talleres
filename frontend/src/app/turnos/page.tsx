@@ -399,7 +399,7 @@ export default function TurnosPage() {
                       <Input label="Marca" value={form.brand} onChange={(value) => setForm((prev) => ({ ...prev, brand: value }))} required />
                       <Input label="Modelo" value={form.model} onChange={(value) => setForm((prev) => ({ ...prev, model: value }))} required />
                     </div>
-                    <Input label="Ano" type="number" value={form.year} onChange={(value) => setForm((prev) => ({ ...prev, year: value }))} />
+                    <Input label="Año" type="number" value={form.year} onChange={(value) => setForm((prev) => ({ ...prev, year: value }))} />
                   </div>
                 </section>
 
