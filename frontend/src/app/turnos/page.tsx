@@ -373,7 +373,7 @@ export default function TurnosPage() {
       {isModalOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-gray-900/30 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+          <div className="fixed right-0 top-0 z-50 flex h-[100dvh] w-full max-w-md min-h-0 flex-col bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
               <h2 className="text-xl font-extrabold text-gray-900">Nuevo Turno</h2>
               <button
@@ -386,8 +386,8 @@ export default function TurnosPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-1 flex-col">
-              <div className="flex-1 space-y-6 overflow-y-auto p-6">
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-y-contain p-6">
                 <section>
                   <div className="mb-4 flex items-center gap-2">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 font-bold text-blue-600">1</div>
@@ -463,7 +463,7 @@ export default function TurnosPage() {
       {isEditorOpen && selectedOrder && (
         <>
           <div className="fixed inset-0 z-40 bg-gray-900/30 backdrop-blur-sm" onClick={() => setIsEditorOpen(false)} />
-          <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-xl flex-col bg-white shadow-2xl">
+          <div className="fixed right-0 top-0 z-50 flex h-[100dvh] w-full max-w-xl min-h-0 flex-col bg-white shadow-2xl">
             <div className="border-b border-gray-100 px-6 py-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -485,8 +485,8 @@ export default function TurnosPage() {
               </div>
             </div>
 
-            <form onSubmit={handleEditorSubmit} className="flex flex-1 flex-col">
-              <div className="flex-1 space-y-6 overflow-y-auto p-6">
+            <form onSubmit={handleEditorSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-y-contain p-6">
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
                   <p className="font-semibold text-gray-900">Turno asociado</p>
                   <p className="mt-1">

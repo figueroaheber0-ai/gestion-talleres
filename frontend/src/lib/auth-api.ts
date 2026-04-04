@@ -443,6 +443,17 @@ export interface OwnerAccountStatus {
   remainingWorkOrders: number | null;
   features: string[];
   monthlyRevenue: number;
+  trialEndsAt: string | null;
+  trialRemainingDays: number | null;
+  restricted: boolean;
+  availablePlans: Array<{
+    code: "starter" | "pro" | "enterprise";
+    name: string;
+    monthlyPrice: number;
+    maxUsers: number;
+    maxWorkOrders: number | null;
+    features: string[];
+  }>;
 }
 
 export const API_BASE_URL =
@@ -622,6 +633,13 @@ export async function fetchSuperadminFinances(token: string) {
 
 export async function fetchOwnerAccountStatus(token: string) {
   return authorizedGet<OwnerAccountStatus>("/auth/owner/account-status", token);
+}
+
+export async function selectOwnerPlan(
+  token: string,
+  input: { planCode: "starter" | "pro" | "enterprise"; billingCycle?: "monthly" | "semiannual" | "annual" },
+) {
+  return authorizedPost<OwnerAccountStatus>("/auth/owner/select-plan", token, input);
 }
 
 export async function upsertPlatformPlan(

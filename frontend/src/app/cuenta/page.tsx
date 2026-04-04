@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { fetchOwnerAccountStatus, getStoredStaffToken, type OwnerAccountStatus } from "@/lib/auth-api";
+import {
+  fetchOwnerAccountStatus,
+  getStoredStaffToken,
+  selectOwnerPlan,
+  type OwnerAccountStatus,
+} from "@/lib/auth-api";
 
 const STATUS_LABEL: Record<OwnerAccountStatus["contractStatus"], string> = {
   active: "Activo",
@@ -24,25 +29,25 @@ export default function CuentaPage() {
   const [data, setData] = useState<OwnerAccountStatus | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [activatingPlan, setActivatingPlan] = useState<"starter" | "pro" | "enterprise" | null>(null);
+
+  const loadStatus = async () => {
+    const token = getStoredStaffToken();
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError("");
+      setData(await fetchOwnerAccountStatus(token));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el estado de cuenta.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      const token = getStoredStaffToken();
-      if (!token) return;
-
-      try {
-        setLoading(true);
-        setError("");
-        setData(await fetchOwnerAccountStatus(token));
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el estado de cuenta.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user?.role === "owner") {
-      void load();
+      void loadStatus();
       return;
     }
     setLoading(false);
@@ -52,6 +57,26 @@ export default function CuentaPage() {
     if (!data) return "-";
     return new Date(data.nextRenewalAt).toLocaleDateString("es-AR");
   }, [data]);
+
+  const trialDate = useMemo(() => {
+    if (!data?.trialEndsAt) return null;
+    return new Date(data.trialEndsAt).toLocaleDateString("es-AR");
+  }, [data?.trialEndsAt]);
+
+  const activatePlan = async (planCode: "starter" | "pro" | "enterprise") => {
+    const token = getStoredStaffToken();
+    if (!token) return;
+    try {
+      setActivatingPlan(planCode);
+      setError("");
+      const updated = await selectOwnerPlan(token, { planCode, billingCycle: "monthly" });
+      setData(updated);
+    } catch (activationError) {
+      setError(activationError instanceof Error ? activationError.message : "No se pudo activar el plan.");
+    } finally {
+      setActivatingPlan(null);
+    }
+  };
 
   if (user?.role !== "owner") {
     return (
@@ -89,11 +114,68 @@ export default function CuentaPage() {
 
       {data ? (
         <>
+          {data.effectivePlan === "free" ? (
+            <div
+              className={`mb-6 rounded-xl border px-4 py-3 text-sm ${
+                data.restricted
+                  ? "border-red-300/35 bg-red-50 text-red-800"
+                  : "border-amber-300/35 bg-amber-50 text-amber-900"
+              }`}
+            >
+              {data.restricted
+                ? "La prueba gratuita terminó. Contratá un plan para volver a usar el sistema completo."
+                : `Estás en prueba gratuita de 3 días. Vence el ${trialDate ?? "-"} (${data.trialRemainingDays ?? 0} días restantes).`}
+            </div>
+          ) : null}
+
           <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card label="Plan activo" value={data.effectivePlanLabel} detail={`Ciclo ${BILLING_LABEL[data.billingCycle]}`} />
             <Card label="Estado del contrato" value={STATUS_LABEL[data.contractStatus]} detail={`${data.remainingDays} días restantes`} />
             <Card label="Próxima renovación" value={renewalDate} detail={data.autoRenew ? "Renovación automática" : "Renovación manual"} />
             <Card label="Precio mensual" value={`$${data.monthlyPrice.toLocaleString("es-AR")}`} detail="Referencia de facturación" />
+          </section>
+
+          <section className="mb-6 rounded-2xl border border-[#2400A2]/20 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold text-[#190B47]">Elegí tu plan</h2>
+            <p className="mt-1 text-sm text-[#475569]">
+              Podés activar cualquiera de los planes base. Los planes personalizados se gestionan por soporte.
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {data.availablePlans.map((plan) => {
+                const isCurrent = plan.code === data.effectivePlan;
+                return (
+                  <article key={plan.code} className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4">
+                    <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#8A8A80]">{plan.code}</p>
+                    <p className="mt-1 text-xl font-extrabold text-[#190B47]">{plan.name}</p>
+                    <p className="mt-2 text-sm font-semibold text-[#1e293b]">
+                      ${plan.monthlyPrice.toLocaleString("es-AR")} / mes
+                    </p>
+                    <p className="mt-1 text-xs text-[#64748b]">
+                      Hasta {plan.maxUsers} usuarios · {plan.maxWorkOrders === null ? "Órdenes ilimitadas" : `${plan.maxWorkOrders} órdenes`}
+                    </p>
+                    <ul className="mt-3 space-y-1">
+                      {plan.features.slice(0, 4).map((feature) => (
+                        <li key={feature} className="text-xs text-[#334155]">
+                          · {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      onClick={() => void activatePlan(plan.code)}
+                      disabled={isCurrent || activatingPlan !== null}
+                      className={`mt-4 w-full rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                        isCurrent
+                          ? "cursor-not-allowed border border-[#e2e8f0] bg-white text-[#64748b]"
+                          : "bg-[#FFE707] text-[#190B47] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+                      }`}
+                    >
+                      {isCurrent ? "Plan actual" : activatingPlan === plan.code ? "Activando..." : "Contratar plan"}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
           </section>
 
           <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">

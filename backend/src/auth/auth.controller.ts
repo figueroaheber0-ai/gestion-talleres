@@ -48,6 +48,11 @@ interface AcceptInviteBody {
   password: string;
 }
 
+interface OwnerPlanSelectionBody {
+  planCode: string;
+  billingCycle?: 'monthly' | 'semiannual' | 'annual';
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -240,7 +245,7 @@ export class AuthController {
 
   @Get('session')
   async session(@Headers('authorization') authorization?: string) {
-    return { user: await this.authService.requireSession(authorization) };
+    return { user: await this.authService.requireSession(authorization, undefined, { allowRestricted: true }) };
   }
 
   @Get('staff')
@@ -257,8 +262,17 @@ export class AuthController {
 
   @Get('owner/account-status')
   async ownerAccountStatus(@Headers('authorization') authorization?: string) {
-    const viewer = await this.authService.requireSession(authorization, 'staff');
+    const viewer = await this.authService.requireSession(authorization, 'staff', { allowRestricted: true });
     return this.authService.getOwnerAccountStatus(viewer);
+  }
+
+  @Post('owner/select-plan')
+  async ownerSelectPlan(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: OwnerPlanSelectionBody,
+  ) {
+    const viewer = await this.authService.requireSession(authorization, 'staff', { allowRestricted: true });
+    return this.authService.selectOwnerPlan(viewer, body!);
   }
 
   @Post('staff/invites')

@@ -81,6 +81,15 @@ interface PlatformPlanRow {
 type BillingCycle = 'monthly' | 'semiannual' | 'annual';
 type ContractStatus = 'active' | 'expiring' | 'expired' | 'suspended';
 type WarningLevel = 'normal' | '30d' | '15d' | '7d' | 'expired';
+interface SessionAccessOptions {
+  allowRestricted?: boolean;
+}
+
+interface TenantAccessState {
+  restricted: boolean;
+  trialEndsAt: Date | null;
+  trialRemainingDays: number | null;
+}
 
 export interface StaffInviteRow {
   id: string;
@@ -236,7 +245,7 @@ export class AuthService {
     const tenant = await this.prisma.tenant.create({
       data: {
         name: input.workshopName,
-        subscriptionPlan: 'starter',
+        subscriptionPlan: 'free',
         maxCapacity: 8,
       },
     });
@@ -459,6 +468,7 @@ export class AuthService {
   async requireSession(
     authorization: string | undefined,
     audience?: SessionAudience,
+    options?: SessionAccessOptions,
   ) {
     const token = authorization?.replace(/^Bearer\s+/i, '').trim();
 
@@ -470,6 +480,19 @@ export class AuthService {
 
     if (audience && user.audience !== audience) {
       throw new UnauthorizedException('No tienes permisos para esta vista.');
+    }
+
+    if (
+      user.audience === 'staff' &&
+      user.role !== 'superadmin' &&
+      user.tenantId
+    ) {
+      const access = await this.resolveTenantAccess(user.tenantId);
+      if (access.restricted && !options?.allowRestricted) {
+        throw new ForbiddenException(
+          'La prueba gratuita de 3 días finalizó. Selecciona un plan para reactivar el taller.',
+        );
+      }
     }
 
     return user;
@@ -710,22 +733,10 @@ export class AuthService {
 
     const settings = await this.getTenantAdminSettings(tenant.id);
     const contract = this.resolveTenantContract(tenant, settings ?? undefined);
+    const access = await this.resolveTenantAccess(tenant.id);
     const effectivePlanCode = settings?.planOverride ?? tenant.subscriptionPlan;
 
-    const plans = await this.prisma.$queryRaw<PlatformPlanRow[]>`
-      SELECT
-        id,
-        code,
-        name,
-        "monthlyPrice" as "monthlyPrice",
-        "maxUsers" as "maxUsers",
-        "maxWorkOrders" as "maxWorkOrders",
-        features,
-        active,
-        "createdAt" as "createdAt",
-        "updatedAt" as "updatedAt"
-      FROM "PlatformPlan"
-    `;
+    const plans = await this.listBasicCatalogPlans();
     const plan = plans.find((item) => item.code === effectivePlanCode) ?? null;
 
     const customPlan =
@@ -784,7 +795,109 @@ export class AuthService {
       remainingWorkOrders,
       features: customPlan?.features ?? (plan?.features ? JSON.parse(plan.features) : []),
       monthlyRevenue: tenant.workOrders.reduce((sum, order) => sum + order.totalCost, 0),
+      trialEndsAt: access.trialEndsAt,
+      trialRemainingDays: access.trialRemainingDays,
+      restricted: access.restricted,
+      availablePlans: plans.map((catalogPlan) => ({
+        code: catalogPlan.code,
+        name: catalogPlan.name,
+        monthlyPrice: catalogPlan.monthlyPrice,
+        maxUsers: catalogPlan.maxUsers,
+        maxWorkOrders: catalogPlan.maxWorkOrders,
+        features: catalogPlan.features ? JSON.parse(catalogPlan.features) : [],
+      })),
     };
+  }
+
+  async selectOwnerPlan(
+    viewer: SessionUser,
+    input: { planCode: string; billingCycle?: BillingCycle },
+  ) {
+    if (viewer.audience !== 'staff' || !viewer.tenantId || viewer.role !== 'owner') {
+      throw new ForbiddenException('Solo el dueño puede actualizar el plan.');
+    }
+
+    await this.ensureAdminTables();
+    const planCode = input.planCode.trim().toLowerCase();
+    const billingCycle = this.normalizeBillingCycle(input.billingCycle);
+    const plans = await this.listBasicCatalogPlans();
+    const selectedPlan = plans.find((plan) => plan.code === planCode && plan.active);
+
+    if (!selectedPlan) {
+      throw new UnauthorizedException('El plan seleccionado no está disponible para contratación.');
+    }
+
+    const startAt = new Date();
+    const endsAt = this.resolvePlanEndDate(startAt, billingCycle);
+
+    await this.prisma.tenant.update({
+      where: { id: viewer.tenantId },
+      data: {
+        subscriptionPlan: selectedPlan.code,
+        maxCapacity: selectedPlan.maxUsers,
+      },
+    });
+
+    await this.prisma.$executeRaw`
+      INSERT INTO "TenantAdminSettings" (
+        "tenantId",
+        status,
+        "planOverride",
+        "moderationNote",
+        "billingCycle",
+        "planStartAt",
+        "planEndsAt",
+        "nextRenewalAt",
+        "autoRenew",
+        "effectiveMonthlyPrice",
+        "customPlanEnabled",
+        "customPlanName",
+        "customMonthlyPrice",
+        "customMaxUsers",
+        "customMaxWorkOrders",
+        "customFeatures",
+        "updatedAt"
+      )
+      VALUES (
+        ${viewer.tenantId},
+        'active',
+        NULL,
+        NULL,
+        ${billingCycle},
+        ${startAt},
+        ${endsAt},
+        ${endsAt},
+        true,
+        ${selectedPlan.monthlyPrice},
+        false,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NOW()
+      )
+      ON CONFLICT ("tenantId")
+      DO UPDATE SET
+        status = 'active',
+        "planOverride" = NULL,
+        "moderationNote" = NULL,
+        "billingCycle" = ${billingCycle},
+        "planStartAt" = ${startAt},
+        "planEndsAt" = ${endsAt},
+        "nextRenewalAt" = ${endsAt},
+        "autoRenew" = true,
+        "effectiveMonthlyPrice" = ${selectedPlan.monthlyPrice},
+        "customPlanEnabled" = false,
+        "customPlanName" = NULL,
+        "customMonthlyPrice" = NULL,
+        "customMaxUsers" = NULL,
+        "customMaxWorkOrders" = NULL,
+        "customFeatures" = NULL,
+        "updatedAt" = NOW()
+    `;
+
+    return this.getOwnerAccountStatus(viewer);
   }
 
   async listTenantsForSuperadmin(viewer: SessionUser) {
@@ -1490,6 +1603,64 @@ export class AuthService {
       return value;
     }
     return 'monthly';
+  }
+
+  private async listBasicCatalogPlans() {
+    await this.ensureAdminTables();
+    return this.prisma.$queryRaw<PlatformPlanRow[]>`
+      SELECT
+        id,
+        code,
+        name,
+        "monthlyPrice" as "monthlyPrice",
+        "maxUsers" as "maxUsers",
+        "maxWorkOrders" as "maxWorkOrders",
+        features,
+        active,
+        "createdAt" as "createdAt",
+        "updatedAt" as "updatedAt"
+      FROM "PlatformPlan"
+      WHERE code IN ('starter', 'pro', 'enterprise')
+      ORDER BY "monthlyPrice" ASC
+    `;
+  }
+
+  private async resolveTenantAccess(tenantId: string): Promise<TenantAccessState> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, createdAt: true, subscriptionPlan: true },
+    });
+    if (!tenant) {
+      return {
+        restricted: true,
+        trialEndsAt: null,
+        trialRemainingDays: null,
+      };
+    }
+    const settings = await this.getTenantAdminSettings(tenant.id);
+    const effectivePlan = settings?.planOverride ?? tenant.subscriptionPlan;
+    const hasCustomPlan = settings?.customPlanEnabled === true;
+    const hasPaidPlan = hasCustomPlan || (effectivePlan && effectivePlan !== 'free');
+
+    if (hasPaidPlan) {
+      return {
+        restricted: false,
+        trialEndsAt: null,
+        trialRemainingDays: null,
+      };
+    }
+
+    const trialEndsAt = new Date(tenant.createdAt);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 3);
+    const trialRemainingDays = Math.ceil(
+      (trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+    );
+
+    return {
+      restricted: trialRemainingDays < 0,
+      trialEndsAt,
+      trialRemainingDays,
+    };
   }
 
   private parseDateInput(value: string | undefined, fallback: Date | null) {
