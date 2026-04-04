@@ -88,6 +88,7 @@ export default function SuperAdminPage() {
   const [roleFilter, setRoleFilter] = useState("todos");
   const [tenantFilter, setTenantFilter] = useState("todos");
   const [error, setError] = useState("");
+  const [planRequestsSupported, setPlanRequestsSupported] = useState(true);
   const [savingTenant, setSavingTenant] = useState(false);
   const [savingPlan, setSavingPlan] = useState(false);
   const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
@@ -107,14 +108,18 @@ export default function SuperAdminPage() {
   const loadAll = useCallback(async (token: string, initialize = false, keepTenantId?: string) => {
     try {
       setError("");
-      const [tenantRows, userRows, testAccountRows, planRows, financeRows, planRequestRows] = await Promise.all([
+      const [tenantRows, userRows, testAccountRows, planRows, financeRows] = await Promise.all([
         fetchSuperadminTenants(token),
         fetchSuperadminUsers(token),
         fetchSuperadminTestAccounts(token),
         fetchSuperadminPlans(token),
         fetchSuperadminFinances(token),
-        fetchSuperadminPlanRequests(token),
       ]);
+      let supportsPlanRequests = true;
+      const planRequestRows = await fetchSuperadminPlanRequests(token).catch(() => {
+        supportsPlanRequests = false;
+        return [];
+      });
 
       setTenants(tenantRows);
       setUsers(userRows);
@@ -122,6 +127,7 @@ export default function SuperAdminPage() {
       setPlans(planRows);
       setFinances(financeRows);
       setPlanRequests(planRequestRows);
+      setPlanRequestsSupported(supportsPlanRequests);
       setSuperadminForm((prev) => ({
         ...prev,
         tenantId: prev.tenantId || tenantRows[0]?.id || "",
@@ -519,50 +525,56 @@ export default function SuperAdminPage() {
 
         <section className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
           <Panel title="Solicitudes de plan" subtitle="Aprobación manual de contrataciones">
-            <SimpleTable
-              headers={["Taller", "Plan solicitado", "Estado", "Solicitado por", "Acciones"]}
-              rows={planRequests.map((request) => [
-                <div key={`${request.id}-tenant`}>
-                  <p className="font-semibold text-white">{request.tenantName}</p>
-                  <p className="text-xs text-slate-400">{new Date(request.createdAt).toLocaleString("es-AR")}</p>
-                </div>,
-                <div key={`${request.id}-plan`} className="text-sm text-slate-200">
-                  {request.requestedPlanCode.toUpperCase()} · {billingLabel(request.requestedBillingCycle)}
-                </div>,
-                <span key={`${request.id}-status`} className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                  request.status === "pending"
-                    ? "border-amber-400/25 bg-amber-400/10 text-amber-200"
-                    : request.status === "approved"
-                      ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
-                      : "border-rose-400/25 bg-rose-400/10 text-rose-200"
-                }`}>
-                  {request.status}
-                </span>,
-                <div key={`${request.id}-owner`} className="text-sm text-slate-300">
-                  <p>{request.requestedByName}</p>
-                  <p className="text-xs text-slate-400">{request.requestedByEmail}</p>
-                </div>,
-                <div key={`${request.id}-actions`} className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={request.status !== "pending" || resolvingRequestId === request.id}
-                    onClick={() => void resolvePlanRequest(request.id, "approve")}
-                    className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 disabled:opacity-40"
-                  >
-                    Aprobar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={request.status !== "pending" || resolvingRequestId === request.id}
-                    onClick={() => void resolvePlanRequest(request.id, "reject")}
-                    className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-semibold text-rose-200 disabled:opacity-40"
-                  >
-                    Rechazar
-                  </button>
-                </div>,
-              ])}
-              emptyText="No hay solicitudes pendientes por ahora."
-            />
+            {planRequestsSupported ? (
+              <SimpleTable
+                headers={["Taller", "Plan solicitado", "Estado", "Solicitado por", "Acciones"]}
+                rows={planRequests.map((request) => [
+                  <div key={`${request.id}-tenant`}>
+                    <p className="font-semibold text-white">{request.tenantName}</p>
+                    <p className="text-xs text-slate-400">{new Date(request.createdAt).toLocaleString("es-AR")}</p>
+                  </div>,
+                  <div key={`${request.id}-plan`} className="text-sm text-slate-200">
+                    {request.requestedPlanCode.toUpperCase()} · {billingLabel(request.requestedBillingCycle)}
+                  </div>,
+                  <span key={`${request.id}-status`} className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                    request.status === "pending"
+                      ? "border-amber-400/25 bg-amber-400/10 text-amber-200"
+                      : request.status === "approved"
+                        ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+                        : "border-rose-400/25 bg-rose-400/10 text-rose-200"
+                  }`}>
+                    {request.status}
+                  </span>,
+                  <div key={`${request.id}-owner`} className="text-sm text-slate-300">
+                    <p>{request.requestedByName}</p>
+                    <p className="text-xs text-slate-400">{request.requestedByEmail}</p>
+                  </div>,
+                  <div key={`${request.id}-actions`} className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={request.status !== "pending" || resolvingRequestId === request.id}
+                      onClick={() => void resolvePlanRequest(request.id, "approve")}
+                      className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 disabled:opacity-40"
+                    >
+                      Aprobar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={request.status !== "pending" || resolvingRequestId === request.id}
+                      onClick={() => void resolvePlanRequest(request.id, "reject")}
+                      className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-semibold text-rose-200 disabled:opacity-40"
+                    >
+                      Rechazar
+                    </button>
+                  </div>,
+                ])}
+                emptyText="No hay solicitudes pendientes por ahora."
+              />
+            ) : (
+              <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                Este backend todavía no expone solicitudes de plan. Actualizalo y reiniciá el servicio para habilitar esta sección.
+              </div>
+            )}
           </Panel>
 
           <Panel title="Crear superadmin" subtitle="Alta manual para equipo interno">

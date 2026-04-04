@@ -656,7 +656,18 @@ export async function fetchSuperadminFinances(token: string) {
 }
 
 export async function fetchSuperadminPlanRequests(token: string) {
-  return authorizedGet<PlanChangeRequest[]>("/auth/superadmin/plan-requests", token);
+  const response = await fetch(`${API_BASE_URL}/auth/superadmin/plan-requests`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 404) {
+    return [];
+  }
+
+  return parseResponse<PlanChangeRequest[]>(response);
 }
 
 export async function resolveSuperadminPlanRequest(
