@@ -19,10 +19,6 @@ interface LoginBody {
   tenantId?: string;
 }
 
-interface DemoLoginBody {
-  role: StaffRole;
-}
-
 interface OwnerRegistrationBody {
   workshopName: string;
   name: string;
@@ -222,14 +218,6 @@ export class AuthController {
       },
       body.tenantId,
     );
-  }
-
-  @Post('demo-login')
-  demoLogin(@Body() body: DemoLoginBody, @Req() request: Request) {
-    return this.authService.loginDemo(body.role, {
-      userAgent: request.headers['user-agent'],
-      ipAddress: request.ip,
-    });
   }
 
   @Post('register-owner')

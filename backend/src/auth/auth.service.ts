@@ -10,7 +10,6 @@ import {
   hashSessionToken,
   verifyPassword,
 } from './password.util';
-import { DEMO_USERS } from './demo-users';
 import { SessionAudience, SessionUser, StaffRole } from './auth.types';
 
 interface RequestMeta {
@@ -163,23 +162,6 @@ export class AuthService {
       );
     }
 
-    const demoEntry = Object.values(DEMO_USERS).find(
-      (entry) =>
-        entry.user.email.toLowerCase() === normalizedEmail &&
-        entry.password === password,
-    );
-
-    if (demoEntry) {
-      return this.createEphemeralSession({
-        id: demoEntry.user.email,
-        name: demoEntry.user.name,
-        email: demoEntry.user.email,
-        role: demoEntry.user.role,
-        avatar: demoEntry.user.avatar,
-        audience: 'staff',
-      });
-    }
-
     throw new UnauthorizedException('Email o contrasena invalidos.');
   }
 
@@ -233,31 +215,6 @@ export class AuthService {
       },
       meta,
     );
-  }
-
-  async loginDemo(role: StaffRole, meta: RequestMeta) {
-    const entry = DEMO_USERS[role];
-
-    if (!entry) {
-      throw new UnauthorizedException('Rol demo invalido.');
-    }
-
-    try {
-      return await this.loginWithCredentials(
-        entry.user.email,
-        entry.password,
-        meta,
-      );
-    } catch {
-      return this.createEphemeralSession({
-        id: entry.user.email,
-        name: entry.user.name,
-        email: entry.user.email,
-        role: entry.user.role,
-        avatar: entry.user.avatar,
-        audience: 'staff',
-      });
-    }
   }
 
   async registerOwner(input: {
@@ -421,10 +378,6 @@ export class AuthService {
   }
 
   async readSession(token: string): Promise<SessionUser> {
-    if (token.startsWith('demo-')) {
-      throw new UnauthorizedException('Las sesiones demo no son persistentes.');
-    }
-
     const [session] = await this.prisma.$queryRaw<SessionRow[]>`
       SELECT
         id,
@@ -1085,32 +1038,7 @@ export class AuthService {
   async listTestAccountsForSuperadmin(viewer: SessionUser) {
     this.assertSuperadmin(viewer);
 
-    return [
-      ...Object.values(DEMO_USERS).map((entry) => ({
-        role: entry.user.role,
-        name: entry.user.name,
-        email: entry.user.email,
-        password: entry.password,
-        scope:
-          entry.user.role === 'superadmin'
-            ? 'Administracion de plataforma'
-            : 'Operacion interna del taller',
-        notes:
-          entry.user.role === 'owner'
-            ? 'Cuenta de prueba para revisar gestion del taller.'
-            : entry.user.role === 'employee'
-              ? 'Cuenta de prueba para revisar operacion diaria.'
-              : 'Cuenta de prueba para moderacion y laboratorio.',
-      })),
-      {
-        role: 'client',
-        name: 'Juan Cliente',
-        email: 'juan@cliente.com',
-        password: 'cliente123',
-        scope: 'Portal de clientes',
-        notes: 'Cuenta de prueba para historial del vehiculo y actualizaciones.',
-      },
-    ];
+    return [];
   }
 
   async moderateTenant(
@@ -1304,14 +1232,6 @@ export class AuthService {
         ...user,
         sessionId,
       },
-    };
-  }
-
-  private createEphemeralSession(user: SessionUser) {
-    return {
-      token: `demo-${generateSessionToken()}`,
-      expiresAt: Date.now() + this.sessionDurationMs,
-      user,
     };
   }
 

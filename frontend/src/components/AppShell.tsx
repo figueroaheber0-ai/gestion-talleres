@@ -11,7 +11,7 @@ const NAV_ITEMS = [
     label: "Dashboard",
     roles: ["owner", "employee"] as UserRole[],
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -26,7 +26,7 @@ const NAV_ITEMS = [
     label: "Turnos",
     roles: ["owner", "employee"] as UserRole[],
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -41,7 +41,7 @@ const NAV_ITEMS = [
     label: "Órdenes",
     roles: ["owner", "employee"] as UserRole[],
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -56,7 +56,7 @@ const NAV_ITEMS = [
     label: "Directorio",
     roles: ["owner", "employee"] as UserRole[],
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -71,7 +71,7 @@ const NAV_ITEMS = [
     label: "Finanzas",
     roles: ["owner"] as UserRole[],
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -86,7 +86,7 @@ const NAV_ITEMS = [
     label: "Equipo",
     roles: ["owner"] as UserRole[],
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -101,7 +101,7 @@ const NAV_ITEMS = [
     label: "Sesiones",
     roles: ["owner", "superadmin"] as UserRole[],
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -120,9 +120,9 @@ const ROLE_LABEL: Record<UserRole, string> = {
 };
 
 const ROLE_COLOR: Record<UserRole, string> = {
-  owner: "border border-amber-500/30 bg-amber-500/12 text-amber-200",
-  employee: "border border-sky-500/30 bg-sky-500/12 text-sky-200",
-  superadmin: "border border-violet-500/30 bg-violet-500/12 text-violet-200",
+  owner: "border border-[#FFE707]/45 bg-[#FFE707]/14 text-white",
+  employee: "border border-white/25 bg-white/10 text-white",
+  superadmin: "border border-[#8A8A80]/60 bg-[#190B47]/60 text-white",
 };
 
 function Sidebar() {
@@ -138,20 +138,22 @@ function Sidebar() {
   };
 
   return (
-    <nav className="panel-shell sticky top-0 hidden h-screen w-full flex-col border-r border-white/10 bg-transparent p-4 md:flex md:w-72">
+    <nav className="panel-shell sticky top-0 hidden h-screen w-full flex-col border-r border-white/12 bg-transparent p-4 md:flex md:w-72">
       <Link
         href="/"
-        className="mb-6 rounded-2xl border border-white/8 bg-white/4 px-4 py-4 text-2xl font-bold tracking-tight text-white transition-opacity hover:opacity-90"
+        className="mb-6 rounded-2xl border border-white/12 bg-[#190B47]/65 px-4 py-4 text-2xl font-bold tracking-tight text-white transition-opacity hover:opacity-90"
       >
         <span data-display="true">81</span>
-        <span className="text-amber-400">cc</span>
-        <p className="mt-2 text-xs font-medium tracking-[0.24em] text-slate-400 uppercase">Cockpit operativo</p>
+        <span className="text-[#FFE707]">cc</span>
+        <p className="mt-2 text-xs font-medium uppercase tracking-[0.24em] text-[#8A8A80]">Cockpit operativo</p>
       </Link>
 
-      <div className="mb-5 rounded-2xl border border-white/8 bg-white/4 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Taller activo</p>
-        <p className="mt-2 text-sm font-semibold text-slate-100">{user?.tenantId ? "Espacio operativo conectado" : "Cuenta lista"}</p>
-        <p className="mt-1 text-xs text-slate-400">Turnos, órdenes, clientes y caja en una sola consola.</p>
+      <div className="mb-5 rounded-2xl border border-white/12 bg-[#190B47]/60 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A8A80]">Taller activo</p>
+        <p className="mt-2 text-sm font-semibold text-white">
+          {user?.tenantId ? "Espacio operativo conectado" : "Cuenta lista"}
+        </p>
+        <p className="mt-1 text-xs text-white/80">Turnos, órdenes, clientes y caja en una sola consola.</p>
       </div>
 
       <div className="flex-1 space-y-1.5 font-medium">
@@ -163,8 +165,8 @@ function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 rounded-2xl p-3 text-sm transition-all ${
                 isActive
-                  ? "border border-amber-500/30 bg-amber-500/12 font-semibold text-amber-100 shadow-[0_10px_30px_rgba(245,158,11,0.10)]"
-                  : "border border-transparent text-slate-400 hover:border-white/8 hover:bg-white/4 hover:text-white"
+                  ? "border border-[#FFE707]/45 bg-[#FFE707]/12 font-semibold text-white shadow-[0_10px_30px_rgba(255,231,7,0.16)]"
+                  : "border border-transparent text-[#8A8A80] hover:border-white/12 hover:bg-white/8 hover:text-white"
               }`}
             >
               {item.icon}
@@ -174,16 +176,14 @@ function Sidebar() {
         })}
       </div>
 
-      <div className="border-t border-white/8 pt-4">
-        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/8 bg-white/4 p-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-sm font-bold text-slate-950 shadow-lg shadow-amber-900/30">
+      <div className="border-t border-white/12 pt-4">
+        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/12 bg-[#190B47]/60 p-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFE707] text-sm font-bold text-[#190B47] shadow-lg shadow-[#474211]/35">
             {user?.avatar ?? "?"}
           </div>
           <div className="min-w-0 flex-1 text-sm">
             <div className="truncate font-semibold text-white">{user?.name}</div>
-            <span
-              className={`rounded-full px-2 py-1 text-[10px] font-bold ${user ? ROLE_COLOR[user.role] : ""}`}
-            >
+            <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${user ? ROLE_COLOR[user.role] : ""}`}>
               {user ? ROLE_LABEL[user.role] : ""}
             </span>
           </div>
@@ -191,9 +191,9 @@ function Sidebar() {
         <button
           id="logout-btn"
           onClick={handleLogout}
-          className="group flex w-full items-center gap-2 rounded-2xl border border-white/8 p-3 text-sm font-medium text-slate-400 transition-colors hover:border-red-500/25 hover:bg-red-500/10 hover:text-red-200"
+          className="group flex w-full items-center gap-2 rounded-2xl border border-white/12 p-3 text-sm font-medium text-[#8A8A80] transition-colors hover:border-red-500/35 hover:bg-red-500/10 hover:text-red-200"
         >
-          <svg className="h-4 w-4 transition-colors group-hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-4 w-4 transition-colors group-hover:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -215,21 +215,19 @@ function MobileNav() {
   const mobileItems = NAV_ITEMS.filter((item) => user && item.roles.includes(user.role)).slice(0, 4);
 
   return (
-    <nav className="panel-shell fixed bottom-0 z-50 flex w-full justify-around border-t border-white/10 bg-slate-950/90 p-2 pb-safe backdrop-blur md:hidden">
+    <nav className="panel-shell fixed bottom-0 z-50 flex w-full justify-around border-t border-white/12 bg-[#190B47]/95 p-2 pb-safe backdrop-blur md:hidden">
       {mobileItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center p-2 transition-colors ${
-              isActive ? "text-amber-300" : "text-slate-500 hover:text-slate-200"
+            className={`flex min-w-[64px] flex-col items-center rounded-xl px-2 py-2 transition-colors ${
+              isActive ? "bg-[#FFE707]/12 text-[#FFE707]" : "text-[#8A8A80] hover:text-white"
             }`}
           >
             {item.icon}
-            <span className={`mt-1 text-[10px] ${isActive ? "font-bold" : "font-medium"}`}>
-              {item.label.split(" ")[0]}
-            </span>
+            <span className={`mt-1 text-[10px] ${isActive ? "font-bold" : "font-medium"}`}>{item.label.split(" ")[0]}</span>
           </Link>
         );
       })}
