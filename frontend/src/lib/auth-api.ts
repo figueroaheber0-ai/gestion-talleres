@@ -333,6 +333,24 @@ export interface SuperadminTestAccount {
   notes: string;
 }
 
+export interface PlanChangeRequest {
+  id: string;
+  tenantId: string;
+  requestedByUserId: string;
+  requestedPlanCode: "starter" | "pro" | "enterprise";
+  requestedBillingCycle: "monthly" | "semiannual" | "annual";
+  status: "pending" | "approved" | "rejected";
+  requestNote: string | null;
+  reviewNote: string | null;
+  reviewedByUserId: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  tenantName: string;
+  requestedByName: string;
+  requestedByEmail: string;
+  reviewedByName: string | null;
+}
+
 export interface PlatformPlan {
   id: string;
   code: string;
@@ -454,6 +472,12 @@ export interface OwnerAccountStatus {
     maxWorkOrders: number | null;
     features: string[];
   }>;
+  pendingPlanRequest: {
+    id: string;
+    requestedPlanCode: "starter" | "pro" | "enterprise";
+    requestedBillingCycle: "monthly" | "semiannual" | "annual";
+    createdAt: string;
+  } | null;
 }
 
 export const API_BASE_URL =
@@ -631,13 +655,39 @@ export async function fetchSuperadminFinances(token: string) {
   return authorizedGet<PlatformFinanceSummary>("/auth/superadmin/finances", token);
 }
 
+export async function fetchSuperadminPlanRequests(token: string) {
+  return authorizedGet<PlanChangeRequest[]>("/auth/superadmin/plan-requests", token);
+}
+
+export async function resolveSuperadminPlanRequest(
+  token: string,
+  requestId: string,
+  input: { action: "approve" | "reject"; reviewNote?: string },
+) {
+  return authorizedPost<PlanChangeRequest[]>(`/auth/superadmin/plan-requests/${requestId}/resolve`, token, input);
+}
+
+export async function createSuperadminAccount(
+  token: string,
+  input: { name: string; email: string; password: string; tenantId?: string },
+) {
+  return authorizedPost<{
+    id: string;
+    tenantId: string;
+    name: string;
+    email: string;
+    role: string;
+    createdAt: string;
+  }>("/auth/superadmin/create-account", token, input);
+}
+
 export async function fetchOwnerAccountStatus(token: string) {
   return authorizedGet<OwnerAccountStatus>("/auth/owner/account-status", token);
 }
 
 export async function selectOwnerPlan(
   token: string,
-  input: { planCode: "starter" | "pro" | "enterprise"; billingCycle?: "monthly" | "semiannual" | "annual" },
+  input: { planCode: "starter" | "pro" | "enterprise"; billingCycle?: "monthly" | "semiannual" | "annual"; note?: string },
 ) {
   return authorizedPost<OwnerAccountStatus>("/auth/owner/select-plan", token, input);
 }

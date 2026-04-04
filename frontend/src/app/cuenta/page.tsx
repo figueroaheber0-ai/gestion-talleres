@@ -78,10 +78,14 @@ export default function CuentaPage() {
     try {
       setActivatingPlan(planCode);
       setError("");
-      const updated = await selectOwnerPlan(token, { planCode, billingCycle: "monthly" });
+      const updated = await selectOwnerPlan(token, {
+        planCode,
+        billingCycle: "monthly",
+        note: "Solicitud enviada desde Estado de cuenta",
+      });
       setData(updated);
     } catch (activationError) {
-      setError(activationError instanceof Error ? activationError.message : "No se pudo activar el plan.");
+      setError(activationError instanceof Error ? activationError.message : "No se pudo enviar la solicitud.");
     } finally {
       setActivatingPlan(null);
     }
@@ -137,6 +141,13 @@ export default function CuentaPage() {
             </div>
           ) : null}
 
+          {data.pendingPlanRequest ? (
+            <div className="mb-6 rounded-xl border border-sky-300/35 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+              Tenés una solicitud pendiente para el plan <strong>{data.pendingPlanRequest.requestedPlanCode.toUpperCase()}</strong>.
+              Fue enviada el {new Date(data.pendingPlanRequest.createdAt).toLocaleDateString("es-AR")} y está esperando aprobación de 81cc.
+            </div>
+          ) : null}
+
           <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card label="Plan activo" value={data.effectivePlanLabel} detail={`Ciclo ${BILLING_LABEL[data.billingCycle]}`} />
             <Card label="Estado del contrato" value={STATUS_LABEL[data.contractStatus]} detail={`${data.remainingDays} días restantes`} />
@@ -152,6 +163,7 @@ export default function CuentaPage() {
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
               {data.availablePlans.map((plan) => {
                 const isCurrent = plan.code === data.effectivePlan;
+                const isRequested = data.pendingPlanRequest?.requestedPlanCode === plan.code;
                 return (
                   <article key={plan.code} className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4">
                     <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#8A8A80]">{plan.code}</p>
@@ -172,14 +184,20 @@ export default function CuentaPage() {
                     <button
                       type="button"
                       onClick={() => void activatePlan(plan.code)}
-                      disabled={isCurrent || activatingPlan !== null}
+                      disabled={isCurrent || isRequested || activatingPlan !== null}
                       className={`mt-4 w-full rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                        isCurrent
+                        isCurrent || isRequested
                           ? "cursor-not-allowed border border-[#e2e8f0] bg-white text-[#64748b]"
                           : "bg-[#FFE707] text-[#190B47] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
                       }`}
                     >
-                      {isCurrent ? "Plan actual" : activatingPlan === plan.code ? "Activando..." : "Contratar plan"}
+                      {isCurrent
+                        ? "Plan actual"
+                        : isRequested
+                          ? "Solicitud pendiente"
+                          : activatingPlan === plan.code
+                            ? "Enviando..."
+                            : "Solicitar plan"}
                     </button>
                   </article>
                 );

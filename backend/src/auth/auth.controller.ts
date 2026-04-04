@@ -51,6 +51,19 @@ interface AcceptInviteBody {
 interface OwnerPlanSelectionBody {
   planCode: string;
   billingCycle?: 'monthly' | 'semiannual' | 'annual';
+  note?: string;
+}
+
+interface SuperadminCreateAccountBody {
+  name: string;
+  email: string;
+  password: string;
+  tenantId?: string;
+}
+
+interface ResolvePlanRequestBody {
+  action: 'approve' | 'reject';
+  reviewNote?: string;
 }
 
 @Controller('auth')
@@ -273,6 +286,34 @@ export class AuthController {
   ) {
     const viewer = await this.authService.requireSession(authorization, 'staff', { allowRestricted: true });
     return this.authService.selectOwnerPlan(viewer, body!);
+  }
+
+  @Get('superadmin/plan-requests')
+  async superadminPlanRequests(@Headers('authorization') authorization?: string) {
+    const viewer = await this.authService.requireSession(authorization, 'staff');
+    return this.authService.listPlanChangeRequestsForSuperadmin(viewer);
+  }
+
+  @Post('superadmin/plan-requests/:requestId/resolve')
+  async resolveSuperadminPlanRequest(
+    @Headers('authorization') authorization: string | undefined,
+    @Req() request: Request,
+    @Body() body?: ResolvePlanRequestBody,
+  ) {
+    const viewer = await this.authService.requireSession(authorization, 'staff');
+    const requestId = Array.isArray(request.params.requestId)
+      ? request.params.requestId[0]
+      : request.params.requestId;
+    return this.authService.resolvePlanChangeRequest(viewer, requestId, body!);
+  }
+
+  @Post('superadmin/create-account')
+  async createSuperadminAccount(
+    @Headers('authorization') authorization?: string,
+    @Body() body?: SuperadminCreateAccountBody,
+  ) {
+    const viewer = await this.authService.requireSession(authorization, 'staff');
+    return this.authService.createSuperadminAccount(viewer, body!);
   }
 
   @Post('staff/invites')

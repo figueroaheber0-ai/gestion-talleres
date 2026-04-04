@@ -18,14 +18,18 @@ import {
 } from "recharts";
 import { useAuth } from "@/context/AuthContext";
 import {
+  createSuperadminAccount,
   fetchSuperadminFinances,
+  fetchSuperadminPlanRequests,
   fetchSuperadminPlans,
   fetchSuperadminTenants,
   fetchSuperadminTestAccounts,
   fetchSuperadminUsers,
   getStoredStaffToken,
   moderateTenant,
+  resolveSuperadminPlanRequest,
   upsertPlatformPlan,
+  type PlanChangeRequest,
   type PlatformFinanceSummary,
   type PlatformPlan,
   type SuperadminTenant,
@@ -56,6 +60,7 @@ export default function SuperAdminPage() {
   const [testAccounts, setTestAccounts] = useState<SuperadminTestAccount[]>([]);
   const [plans, setPlans] = useState<PlatformPlan[]>([]);
   const [finances, setFinances] = useState<PlatformFinanceSummary | null>(null);
+  const [planRequests, setPlanRequests] = useState<PlanChangeRequest[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<SuperadminTenant | null>(null);
 
   const [status, setStatus] = useState<TenantStatus>("active");
@@ -85,6 +90,14 @@ export default function SuperAdminPage() {
   const [error, setError] = useState("");
   const [savingTenant, setSavingTenant] = useState(false);
   const [savingPlan, setSavingPlan] = useState(false);
+  const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
+  const [superadminForm, setSuperadminForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    tenantId: "",
+  });
+  const [creatingSuperadmin, setCreatingSuperadmin] = useState(false);
 
   useEffect(() => {
     if (!user) router.replace("/login");
@@ -94,12 +107,13 @@ export default function SuperAdminPage() {
   const loadAll = useCallback(async (token: string, initialize = false, keepTenantId?: string) => {
     try {
       setError("");
-      const [tenantRows, userRows, testAccountRows, planRows, financeRows] = await Promise.all([
+      const [tenantRows, userRows, testAccountRows, planRows, financeRows, planRequestRows] = await Promise.all([
         fetchSuperadminTenants(token),
         fetchSuperadminUsers(token),
         fetchSuperadminTestAccounts(token),
         fetchSuperadminPlans(token),
         fetchSuperadminFinances(token),
+        fetchSuperadminPlanRequests(token),
       ]);
 
       setTenants(tenantRows);
@@ -107,6 +121,11 @@ export default function SuperAdminPage() {
       setTestAccounts(testAccountRows);
       setPlans(planRows);
       setFinances(financeRows);
+      setPlanRequests(planRequestRows);
+      setSuperadminForm((prev) => ({
+        ...prev,
+        tenantId: prev.tenantId || tenantRows[0]?.id || "",
+      }));
 
       const nextTenant =
         tenantRows.find((tenant) => tenant.id === keepTenantId) ??
@@ -210,6 +229,50 @@ export default function SuperAdminPage() {
       setError(saveError instanceof Error ? saveError.message : "No se pudo guardar el plan.");
     } finally {
       setSavingPlan(false);
+    }
+  };
+
+  const resolvePlanRequest = async (
+    requestId: string,
+    action: "approve" | "reject",
+  ) => {
+    const token = getStoredStaffToken();
+    if (!token) return;
+    try {
+      setResolvingRequestId(requestId);
+      setError("");
+      const rows = await resolveSuperadminPlanRequest(token, requestId, {
+        action,
+        reviewNote: action === "approve" ? "Aprobado desde panel superadmin." : "Rechazado desde panel superadmin.",
+      });
+      setPlanRequests(rows);
+      await loadAll(token, false, selectedTenant?.id);
+    } catch (resolveError) {
+      setError(resolveError instanceof Error ? resolveError.message : "No se pudo resolver la solicitud.");
+    } finally {
+      setResolvingRequestId(null);
+    }
+  };
+
+  const createNewSuperadmin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const token = getStoredStaffToken();
+    if (!token) return;
+    try {
+      setCreatingSuperadmin(true);
+      setError("");
+      await createSuperadminAccount(token, {
+        name: superadminForm.name.trim(),
+        email: superadminForm.email.trim(),
+        password: superadminForm.password,
+        tenantId: superadminForm.tenantId || undefined,
+      });
+      setSuperadminForm((prev) => ({ ...prev, name: "", email: "", password: "" }));
+      await loadAll(token, false, selectedTenant?.id);
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "No se pudo crear el superadmin.");
+    } finally {
+      setCreatingSuperadmin(false);
     }
   };
 
@@ -452,6 +515,96 @@ export default function SuperAdminPage() {
               </ResponsiveContainer>
             </ChartPanel>
           </div>
+        </section>
+
+        <section className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
+          <Panel title="Solicitudes de plan" subtitle="Aprobación manual de contrataciones">
+            <SimpleTable
+              headers={["Taller", "Plan solicitado", "Estado", "Solicitado por", "Acciones"]}
+              rows={planRequests.map((request) => [
+                <div key={`${request.id}-tenant`}>
+                  <p className="font-semibold text-white">{request.tenantName}</p>
+                  <p className="text-xs text-slate-400">{new Date(request.createdAt).toLocaleString("es-AR")}</p>
+                </div>,
+                <div key={`${request.id}-plan`} className="text-sm text-slate-200">
+                  {request.requestedPlanCode.toUpperCase()} · {billingLabel(request.requestedBillingCycle)}
+                </div>,
+                <span key={`${request.id}-status`} className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                  request.status === "pending"
+                    ? "border-amber-400/25 bg-amber-400/10 text-amber-200"
+                    : request.status === "approved"
+                      ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+                      : "border-rose-400/25 bg-rose-400/10 text-rose-200"
+                }`}>
+                  {request.status}
+                </span>,
+                <div key={`${request.id}-owner`} className="text-sm text-slate-300">
+                  <p>{request.requestedByName}</p>
+                  <p className="text-xs text-slate-400">{request.requestedByEmail}</p>
+                </div>,
+                <div key={`${request.id}-actions`} className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={request.status !== "pending" || resolvingRequestId === request.id}
+                    onClick={() => void resolvePlanRequest(request.id, "approve")}
+                    className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 disabled:opacity-40"
+                  >
+                    Aprobar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={request.status !== "pending" || resolvingRequestId === request.id}
+                    onClick={() => void resolvePlanRequest(request.id, "reject")}
+                    className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-semibold text-rose-200 disabled:opacity-40"
+                  >
+                    Rechazar
+                  </button>
+                </div>,
+              ])}
+              emptyText="No hay solicitudes pendientes por ahora."
+            />
+          </Panel>
+
+          <Panel title="Crear superadmin" subtitle="Alta manual para equipo interno">
+            <form onSubmit={createNewSuperadmin} className="space-y-4">
+              <Input
+                label="Nombre"
+                value={superadminForm.name}
+                onChange={(value) => setSuperadminForm((prev) => ({ ...prev, name: value }))}
+              />
+              <Input
+                label="Correo"
+                value={superadminForm.email}
+                onChange={(value) => setSuperadminForm((prev) => ({ ...prev, email: value.toLowerCase() }))}
+              />
+              <Input
+                label="Contraseña inicial"
+                type="password"
+                value={superadminForm.password}
+                onChange={(value) => setSuperadminForm((prev) => ({ ...prev, password: value }))}
+              />
+              <Field label="Taller asociado">
+                <select
+                  value={superadminForm.tenantId}
+                  onChange={(event) => setSuperadminForm((prev) => ({ ...prev, tenantId: event.target.value }))}
+                  className={inputClassName}
+                >
+                  {tenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <button
+                type="submit"
+                disabled={creatingSuperadmin || !superadminForm.name || !superadminForm.email || superadminForm.password.length < 6}
+                className="w-full rounded-2xl bg-[linear-gradient(135deg,#22d3ee,#3b82f6)] py-3 font-bold text-slate-950 disabled:opacity-60"
+              >
+                {creatingSuperadmin ? "Creando..." : "Crear superadmin"}
+              </button>
+            </form>
+          </Panel>
         </section>
 
         <Panel title="Usuarios de prueba" subtitle="Sólo visible para superadmin">

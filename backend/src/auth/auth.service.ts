@@ -78,6 +78,24 @@ interface PlatformPlanRow {
   updatedAt: Date;
 }
 
+export interface PlanChangeRequestRow {
+  id: string;
+  tenantId: string;
+  requestedByUserId: string;
+  requestedPlanCode: string;
+  requestedBillingCycle: BillingCycle;
+  status: "pending" | "approved" | "rejected";
+  requestNote: string | null;
+  reviewNote: string | null;
+  reviewedByUserId: string | null;
+  createdAt: Date;
+  reviewedAt: Date | null;
+  tenantName: string;
+  requestedByName: string;
+  requestedByEmail: string;
+  reviewedByName: string | null;
+}
+
 type BillingCycle = 'monthly' | 'semiannual' | 'annual';
 type ContractStatus = 'active' | 'expiring' | 'expired' | 'suspended';
 type WarningLevel = 'normal' | '30d' | '15d' | '7d' | 'expired';
@@ -735,6 +753,24 @@ export class AuthService {
     const contract = this.resolveTenantContract(tenant, settings ?? undefined);
     const access = await this.resolveTenantAccess(tenant.id);
     const effectivePlanCode = settings?.planOverride ?? tenant.subscriptionPlan;
+    const [pendingRequest] = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        requestedPlanCode: string;
+        requestedBillingCycle: BillingCycle;
+        createdAt: Date;
+      }>
+    >`
+      SELECT
+        id,
+        "requestedPlanCode" as "requestedPlanCode",
+        "requestedBillingCycle" as "requestedBillingCycle",
+        "createdAt" as "createdAt"
+      FROM "PlanChangeRequest"
+      WHERE "tenantId" = ${tenant.id} AND status = 'pending'
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+    `;
 
     const plans = await this.listBasicCatalogPlans();
     const plan = plans.find((item) => item.code === effectivePlanCode) ?? null;
@@ -806,15 +842,23 @@ export class AuthService {
         maxWorkOrders: catalogPlan.maxWorkOrders,
         features: catalogPlan.features ? JSON.parse(catalogPlan.features) : [],
       })),
+      pendingPlanRequest: pendingRequest
+        ? {
+            id: pendingRequest.id,
+            requestedPlanCode: pendingRequest.requestedPlanCode,
+            requestedBillingCycle: pendingRequest.requestedBillingCycle,
+            createdAt: pendingRequest.createdAt,
+          }
+        : null,
     };
   }
 
   async selectOwnerPlan(
     viewer: SessionUser,
-    input: { planCode: string; billingCycle?: BillingCycle },
+    input: { planCode: string; billingCycle?: BillingCycle; note?: string },
   ) {
     if (viewer.audience !== 'staff' || !viewer.tenantId || viewer.role !== 'owner') {
-      throw new ForbiddenException('Solo el dueño puede actualizar el plan.');
+      throw new ForbiddenException('Solo el dueño puede solicitar un plan.');
     }
 
     await this.ensureAdminTables();
@@ -827,77 +871,178 @@ export class AuthService {
       throw new UnauthorizedException('El plan seleccionado no está disponible para contratación.');
     }
 
-    const startAt = new Date();
-    const endsAt = this.resolvePlanEndDate(startAt, billingCycle);
-
-    await this.prisma.tenant.update({
-      where: { id: viewer.tenantId },
-      data: {
-        subscriptionPlan: selectedPlan.code,
-        maxCapacity: selectedPlan.maxUsers,
-      },
-    });
-
+    const requestId = generateSessionToken();
     await this.prisma.$executeRaw`
-      INSERT INTO "TenantAdminSettings" (
+      UPDATE "PlanChangeRequest"
+      SET status = 'rejected',
+          "reviewNote" = 'Reemplazada por una solicitud más reciente.',
+          "reviewedByUserId" = ${viewer.id},
+          "reviewedAt" = NOW()
+      WHERE "tenantId" = ${viewer.tenantId} AND status = 'pending'
+    `;
+    await this.prisma.$executeRaw`
+      INSERT INTO "PlanChangeRequest" (
+        id,
         "tenantId",
+        "requestedByUserId",
+        "requestedPlanCode",
+        "requestedBillingCycle",
         status,
-        "planOverride",
-        "moderationNote",
-        "billingCycle",
-        "planStartAt",
-        "planEndsAt",
-        "nextRenewalAt",
-        "autoRenew",
-        "effectiveMonthlyPrice",
-        "customPlanEnabled",
-        "customPlanName",
-        "customMonthlyPrice",
-        "customMaxUsers",
-        "customMaxWorkOrders",
-        "customFeatures",
-        "updatedAt"
+        "requestNote",
+        "reviewNote",
+        "reviewedByUserId",
+        "createdAt",
+        "reviewedAt"
       )
       VALUES (
+        ${requestId},
         ${viewer.tenantId},
-        'active',
-        NULL,
-        NULL,
+        ${viewer.id},
+        ${selectedPlan.code},
         ${billingCycle},
-        ${startAt},
-        ${endsAt},
-        ${endsAt},
-        true,
-        ${selectedPlan.monthlyPrice},
-        false,
+        'pending',
+        ${input.note?.trim() || null},
         NULL,
         NULL,
-        NULL,
-        NULL,
-        NULL,
-        NOW()
+        NOW(),
+        NULL
       )
-      ON CONFLICT ("tenantId")
-      DO UPDATE SET
-        status = 'active',
-        "planOverride" = NULL,
-        "moderationNote" = NULL,
-        "billingCycle" = ${billingCycle},
-        "planStartAt" = ${startAt},
-        "planEndsAt" = ${endsAt},
-        "nextRenewalAt" = ${endsAt},
-        "autoRenew" = true,
-        "effectiveMonthlyPrice" = ${selectedPlan.monthlyPrice},
-        "customPlanEnabled" = false,
-        "customPlanName" = NULL,
-        "customMonthlyPrice" = NULL,
-        "customMaxUsers" = NULL,
-        "customMaxWorkOrders" = NULL,
-        "customFeatures" = NULL,
-        "updatedAt" = NOW()
     `;
 
     return this.getOwnerAccountStatus(viewer);
+  }
+
+  async createSuperadminAccount(
+    viewer: SessionUser,
+    input: { name: string; email: string; password: string; tenantId?: string },
+  ) {
+    this.assertSuperadmin(viewer);
+    const tenantId = input.tenantId?.trim() || viewer.tenantId;
+    if (!tenantId) {
+      throw new UnauthorizedException('No se encontró tenant para crear el superadmin.');
+    }
+
+    const name = input.name.trim();
+    const email = input.email.toLowerCase().trim();
+    const password = input.password;
+    if (!name || !email || password.length < 6) {
+      throw new UnauthorizedException('Completa nombre, email y contraseña válida.');
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new UnauthorizedException('El taller seleccionado no existe.');
+    }
+
+    const existing = await this.prisma.user.findFirst({
+      where: { tenantId, email },
+    });
+    if (existing) {
+      throw new UnauthorizedException('Ese email ya existe en este taller.');
+    }
+
+    const user = await this.prisma.user.create({
+      data: {
+        tenantId,
+        name,
+        email,
+        role: 'superadmin',
+        passwordHash: hashPassword(password),
+      },
+    });
+
+    return {
+      id: user.id,
+      tenantId: user.tenantId,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+    };
+  }
+
+  async listPlanChangeRequestsForSuperadmin(viewer: SessionUser) {
+    this.assertSuperadmin(viewer);
+    await this.ensureAdminTables();
+
+    return this.prisma.$queryRaw<PlanChangeRequestRow[]>`
+      SELECT
+        req.id,
+        req."tenantId" as "tenantId",
+        req."requestedByUserId" as "requestedByUserId",
+        req."requestedPlanCode" as "requestedPlanCode",
+        req."requestedBillingCycle" as "requestedBillingCycle",
+        req.status,
+        req."requestNote" as "requestNote",
+        req."reviewNote" as "reviewNote",
+        req."reviewedByUserId" as "reviewedByUserId",
+        req."createdAt" as "createdAt",
+        req."reviewedAt" as "reviewedAt",
+        t.name as "tenantName",
+        requester.name as "requestedByName",
+        requester.email as "requestedByEmail",
+        reviewer.name as "reviewedByName"
+      FROM "PlanChangeRequest" req
+      INNER JOIN "Tenant" t ON t.id = req."tenantId"
+      INNER JOIN "User" requester ON requester.id = req."requestedByUserId"
+      LEFT JOIN "User" reviewer ON reviewer.id = req."reviewedByUserId"
+      ORDER BY req."createdAt" DESC
+    `;
+  }
+
+  async resolvePlanChangeRequest(
+    viewer: SessionUser,
+    requestId: string,
+    input: { action: "approve" | "reject"; reviewNote?: string },
+  ) {
+    this.assertSuperadmin(viewer);
+    await this.ensureAdminTables();
+
+    const [request] = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        tenantId: string;
+        requestedPlanCode: string;
+        requestedBillingCycle: BillingCycle;
+        status: "pending" | "approved" | "rejected";
+      }>
+    >`
+      SELECT
+        id,
+        "tenantId" as "tenantId",
+        "requestedPlanCode" as "requestedPlanCode",
+        "requestedBillingCycle" as "requestedBillingCycle",
+        status
+      FROM "PlanChangeRequest"
+      WHERE id = ${requestId}
+      LIMIT 1
+    `;
+
+    if (!request) {
+      throw new UnauthorizedException('Solicitud no encontrada.');
+    }
+    if (request.status !== 'pending') {
+      throw new UnauthorizedException('La solicitud ya fue resuelta.');
+    }
+
+    if (input.action === "approve") {
+      await this.applyApprovedCatalogPlan(
+        request.tenantId,
+        request.requestedPlanCode,
+        request.requestedBillingCycle,
+      );
+    }
+
+    await this.prisma.$executeRaw`
+      UPDATE "PlanChangeRequest"
+      SET status = ${input.action === "approve" ? "approved" : "rejected"},
+          "reviewNote" = ${input.reviewNote?.trim() || null},
+          "reviewedByUserId" = ${viewer.id},
+          "reviewedAt" = NOW()
+      WHERE id = ${request.id}
+    `;
+
+    return this.listPlanChangeRequestsForSuperadmin(viewer);
   }
 
   async listTenantsForSuperadmin(viewer: SessionUser) {
@@ -1561,6 +1706,27 @@ export class AuthService {
         ('plan-enterprise', 'enterprise', 'Enterprise', 149, 40, NULL, ${JSON.stringify(['Multi sucursal', 'Soporte prioritario', 'Automatizaciones', 'Auditoría'])}, true, NOW(), NOW())
       ON CONFLICT (code) DO NOTHING
     `;
+    await this.prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "PlanChangeRequest" (
+        id TEXT PRIMARY KEY,
+        "tenantId" TEXT NOT NULL REFERENCES "Tenant"("id") ON DELETE CASCADE,
+        "requestedByUserId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+        "requestedPlanCode" TEXT NOT NULL,
+        "requestedBillingCycle" TEXT NOT NULL DEFAULT 'monthly',
+        status TEXT NOT NULL DEFAULT 'pending',
+        "requestNote" TEXT NULL,
+        "reviewNote" TEXT NULL,
+        "reviewedByUserId" TEXT NULL REFERENCES "User"("id") ON DELETE SET NULL,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "reviewedAt" TIMESTAMP(3) NULL
+      );
+    `);
+    await this.prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "PlanChangeRequest_tenantId_idx" ON "PlanChangeRequest"("tenantId");
+    `);
+    await this.prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "PlanChangeRequest_status_idx" ON "PlanChangeRequest"(status);
+    `);
   }
 
   private assertSuperadmin(viewer: SessionUser) {
@@ -1622,6 +1788,88 @@ export class AuthService {
       FROM "PlatformPlan"
       WHERE code IN ('starter', 'pro', 'enterprise')
       ORDER BY "monthlyPrice" ASC
+    `;
+  }
+
+  private async applyApprovedCatalogPlan(
+    tenantId: string,
+    planCode: string,
+    billingCycle: BillingCycle,
+  ) {
+    const plans = await this.listBasicCatalogPlans();
+    const selectedPlan = plans.find((plan) => plan.code === planCode && plan.active);
+    if (!selectedPlan) {
+      throw new UnauthorizedException('El plan solicitado no está disponible.');
+    }
+
+    const startAt = new Date();
+    const endsAt = this.resolvePlanEndDate(startAt, billingCycle);
+
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        subscriptionPlan: selectedPlan.code,
+        maxCapacity: selectedPlan.maxUsers,
+      },
+    });
+
+    await this.prisma.$executeRaw`
+      INSERT INTO "TenantAdminSettings" (
+        "tenantId",
+        status,
+        "planOverride",
+        "moderationNote",
+        "billingCycle",
+        "planStartAt",
+        "planEndsAt",
+        "nextRenewalAt",
+        "autoRenew",
+        "effectiveMonthlyPrice",
+        "customPlanEnabled",
+        "customPlanName",
+        "customMonthlyPrice",
+        "customMaxUsers",
+        "customMaxWorkOrders",
+        "customFeatures",
+        "updatedAt"
+      )
+      VALUES (
+        ${tenantId},
+        'active',
+        NULL,
+        NULL,
+        ${billingCycle},
+        ${startAt},
+        ${endsAt},
+        ${endsAt},
+        true,
+        ${selectedPlan.monthlyPrice},
+        false,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NOW()
+      )
+      ON CONFLICT ("tenantId")
+      DO UPDATE SET
+        status = 'active',
+        "planOverride" = NULL,
+        "moderationNote" = NULL,
+        "billingCycle" = ${billingCycle},
+        "planStartAt" = ${startAt},
+        "planEndsAt" = ${endsAt},
+        "nextRenewalAt" = ${endsAt},
+        "autoRenew" = true,
+        "effectiveMonthlyPrice" = ${selectedPlan.monthlyPrice},
+        "customPlanEnabled" = false,
+        "customPlanName" = NULL,
+        "customMonthlyPrice" = NULL,
+        "customMaxUsers" = NULL,
+        "customMaxWorkOrders" = NULL,
+        "customFeatures" = NULL,
+        "updatedAt" = NOW()
     `;
   }
 
