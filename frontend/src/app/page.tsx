@@ -5,14 +5,17 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchDashboardSummary,
+  fetchOwnerAccountStatus,
   getStoredStaffToken,
   type DashboardResponse,
+  type OwnerAccountStatus,
 } from "@/lib/auth-api";
 
 export default function Home() {
   const router = useRouter();
   const { user } = useAuth();
   const [data, setData] = useState<DashboardResponse | null>(null);
+  const [accountStatus, setAccountStatus] = useState<OwnerAccountStatus | null>(null);
   const [error, setError] = useState("");
   const firstName = user?.name.split(" ")[0] ?? "equipo";
 
@@ -23,14 +26,20 @@ export default function Home() {
 
       try {
         setError("");
-        setData(await fetchDashboardSummary(token));
+        const dashboard = await fetchDashboardSummary(token);
+        setData(dashboard);
+        if (user?.role === "owner") {
+          setAccountStatus(await fetchOwnerAccountStatus(token));
+        } else {
+          setAccountStatus(null);
+        }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el tablero.");
       }
     };
 
     void load();
-  }, []);
+  }, [user?.role]);
 
   const stats = data?.stats ?? {
     appointmentsToday: 0,
@@ -63,6 +72,21 @@ export default function Home() {
       {error ? (
         <div className="mb-6 rounded-xl border border-red-300/35 bg-red-950/30 px-4 py-3 text-sm text-red-100">
           {error}
+        </div>
+      ) : null}
+
+      {user?.role === "owner" && accountStatus?.pendingPlanRequest ? (
+        <div className="mb-6 flex flex-col gap-3 rounded-xl border border-sky-300/30 bg-sky-50 px-4 py-3 text-sm text-sky-900 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Tu solicitud de plan <strong>{accountStatus.pendingPlanRequest.requestedPlanCode.toUpperCase()}</strong> está en revisión por 81cc.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/cuenta")}
+            className="rounded-lg border border-sky-500/30 bg-white px-3 py-1.5 font-semibold text-sky-700 transition hover:bg-sky-100"
+          >
+            Ver estado de cuenta
+          </button>
         </div>
       ) : null}
 
