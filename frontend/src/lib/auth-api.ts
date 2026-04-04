@@ -417,6 +417,34 @@ export interface PlatformFinanceSummary {
   };
 }
 
+export interface OwnerAccountStatus {
+  tenantId: string;
+  tenantName: string;
+  status: "active" | "suspended";
+  moderationNote: string | null;
+  plan: string;
+  effectivePlan: string;
+  effectivePlanLabel: string;
+  billingMode: "catalog" | "custom";
+  contractStatus: "active" | "expiring" | "expired" | "suspended";
+  warningLevel: "normal" | "30d" | "15d" | "7d" | "expired";
+  billingCycle: "monthly" | "semiannual" | "annual";
+  planStartAt: string;
+  planEndsAt: string;
+  nextRenewalAt: string;
+  autoRenew: boolean;
+  remainingDays: number;
+  monthlyPrice: number;
+  maxUsers: number;
+  totalUsers: number;
+  remainingUsers: number;
+  maxWorkOrders: number | null;
+  activeOrders: number;
+  remainingWorkOrders: number | null;
+  features: string[];
+  monthlyRevenue: number;
+}
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "http://localhost:3000";
@@ -590,6 +618,10 @@ export async function fetchSuperadminPlans(token: string) {
 
 export async function fetchSuperadminFinances(token: string) {
   return authorizedGet<PlatformFinanceSummary>("/auth/superadmin/finances", token);
+}
+
+export async function fetchOwnerAccountStatus(token: string) {
+  return authorizedGet<OwnerAccountStatus>("/auth/owner/account-status", token);
 }
 
 export async function upsertPlatformPlan(

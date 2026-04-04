@@ -97,6 +97,21 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/cuenta",
+    label: "Cuenta",
+    roles: ["owner"] as UserRole[],
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 8c-3.866 0-7 3.134-7 7v2h14v-2c0-3.866-3.134-7-7-7zm0-2a3 3 0 100-6 3 3 0 000 6z"
+        />
+      </svg>
+    ),
+  },
+  {
     href: "/sesiones",
     label: "Sesiones",
     roles: ["owner", "superadmin"] as UserRole[],
@@ -154,7 +169,7 @@ function Sidebar() {
         <p className="mt-1 text-xs text-white/80">Turnos, órdenes, clientes y caja en una sola consola.</p>
       </div>
 
-      <div className="flex-1 space-y-1.5 font-medium">
+      <div className="flex-1 space-y-1.5 overflow-y-auto pb-3 font-medium">
         {visibleItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
           return (
@@ -174,8 +189,8 @@ function Sidebar() {
         })}
       </div>
 
-      <div className="border-t border-white/12 pt-4">
-        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/12 bg-[#190B47]/60 p-3">
+      <div className="mt-4 border-t border-white/12 pt-4">
+        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/18 bg-[#190B47]/75 p-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFE707] text-sm font-bold text-[#190B47] shadow-lg shadow-[#474211]/35">
             {user?.avatar ?? "?"}
           </div>
@@ -189,7 +204,7 @@ function Sidebar() {
         <button
           id="logout-btn"
           onClick={handleLogout}
-          className="group flex w-full items-center gap-2 rounded-2xl border border-white/12 p-3 text-sm font-medium text-white transition-colors hover:border-red-500/35 hover:bg-red-500/10 hover:text-red-200"
+          className="group flex w-full items-center justify-center gap-2 rounded-2xl border border-white/18 bg-[#190B47]/65 p-3 text-sm font-semibold text-white transition-colors hover:border-red-500/35 hover:bg-red-500/10 hover:text-red-200"
         >
           <svg className="h-4 w-4 transition-colors group-hover:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -243,11 +258,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isRegisterPage = pathname.startsWith("/registro");
   const isTeamInvitePage = pathname.startsWith("/registro-equipo");
   const isPortalPage = pathname.startsWith("/portal");
+  const isForgotPasswordPage = pathname.startsWith("/forgot-password");
+  const isResetPasswordPage = pathname.startsWith("/reset-password");
 
   useEffect(() => {
     if (!isReady) return;
 
-    if (isPortalPage || isRegisterPage || isTeamInvitePage) {
+    if (
+      isPortalPage ||
+      isRegisterPage ||
+      isTeamInvitePage ||
+      isForgotPasswordPage ||
+      isResetPasswordPage
+    ) {
       return;
     }
 
@@ -264,13 +287,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (isAuthenticated && user?.role === "superadmin" && !isSuperAdminPage && !isLabPage) {
       router.replace("/superadmin");
     }
-  }, [isAuthenticated, isLabPage, isLoginPage, isPortalPage, isReady, isRegisterPage, isSuperAdminPage, isTeamInvitePage, router, user]);
+  }, [
+    isAuthenticated,
+    isForgotPasswordPage,
+    isLabPage,
+    isLoginPage,
+    isPortalPage,
+    isReady,
+    isRegisterPage,
+    isResetPasswordPage,
+    isSuperAdminPage,
+    isTeamInvitePage,
+    router,
+    user,
+  ]);
 
   if (!isReady) {
     return <div className="min-h-full bg-background" />;
   }
 
-  if (isLoginPage || isSuperAdminPage || isLabPage || isRegisterPage || isPortalPage || isTeamInvitePage) {
+  if (
+    isLoginPage ||
+    isSuperAdminPage ||
+    isLabPage ||
+    isRegisterPage ||
+    isPortalPage ||
+    isTeamInvitePage ||
+    isForgotPasswordPage ||
+    isResetPasswordPage
+  ) {
     return <>{children}</>;
   }
 
@@ -281,7 +326,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-full bg-background text-foreground md:flex">
       <Sidebar />
-      <main className="h-screen flex-1 overflow-auto bg-[#f8fafc] text-[#1e293b] pb-20 md:pb-0">{children}</main>
+      <main className="h-screen flex-1 overflow-auto bg-[#f8fafc] pb-20 text-[#1e293b] md:pb-0">{children}</main>
       <MobileNav />
     </div>
   );

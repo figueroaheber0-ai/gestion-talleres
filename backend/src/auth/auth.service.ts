@@ -685,6 +685,108 @@ export class AuthService {
     };
   }
 
+  async getOwnerAccountStatus(viewer: SessionUser) {
+    if (viewer.audience !== 'staff' || !viewer.tenantId || viewer.role !== 'owner') {
+      throw new ForbiddenException('Solo el dueño puede ver el estado de la cuenta.');
+    }
+
+    await this.ensureAdminTables();
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: viewer.tenantId },
+      include: {
+        users: {
+          select: { id: true, role: true },
+        },
+        workOrders: {
+          select: { id: true, status: true, totalCost: true },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new UnauthorizedException('No encontramos el taller de esta sesión.');
+    }
+
+    const settings = await this.getTenantAdminSettings(tenant.id);
+    const contract = this.resolveTenantContract(tenant, settings ?? undefined);
+    const effectivePlanCode = settings?.planOverride ?? tenant.subscriptionPlan;
+
+    const plans = await this.prisma.$queryRaw<PlatformPlanRow[]>`
+      SELECT
+        id,
+        code,
+        name,
+        "monthlyPrice" as "monthlyPrice",
+        "maxUsers" as "maxUsers",
+        "maxWorkOrders" as "maxWorkOrders",
+        features,
+        active,
+        "createdAt" as "createdAt",
+        "updatedAt" as "updatedAt"
+      FROM "PlatformPlan"
+    `;
+    const plan = plans.find((item) => item.code === effectivePlanCode) ?? null;
+
+    const customPlan =
+      settings?.customPlanEnabled &&
+      settings.customPlanName &&
+      settings.customMonthlyPrice !== null &&
+      settings.customMaxUsers !== null
+        ? {
+            enabled: true,
+            name: settings.customPlanName,
+            monthlyPrice: settings.customMonthlyPrice,
+            maxUsers: settings.customMaxUsers,
+            maxWorkOrders: settings.customMaxWorkOrders,
+            features: settings.customFeatures ? JSON.parse(settings.customFeatures) : [],
+          }
+        : null;
+
+    const totalUsers = tenant.users.length;
+    const activeOrders = tenant.workOrders.filter((order) =>
+      ['pending', 'estimating', 'waiting_parts', 'repairing'].includes(order.status),
+    ).length;
+    const maxUsers = customPlan?.maxUsers ?? plan?.maxUsers ?? tenant.maxCapacity;
+    const maxWorkOrders = customPlan?.maxWorkOrders ?? plan?.maxWorkOrders ?? null;
+    const remainingUsers = Math.max(0, maxUsers - totalUsers);
+    const remainingWorkOrders =
+      maxWorkOrders === null ? null : Math.max(0, maxWorkOrders - activeOrders);
+    const monthlyPrice =
+      settings?.effectiveMonthlyPrice ??
+      customPlan?.monthlyPrice ??
+      plan?.monthlyPrice ??
+      0;
+
+    return {
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      status: settings?.status ?? 'active',
+      moderationNote: settings?.moderationNote ?? null,
+      plan: tenant.subscriptionPlan,
+      effectivePlan: effectivePlanCode,
+      effectivePlanLabel: customPlan?.name ?? plan?.name ?? effectivePlanCode,
+      billingMode: customPlan ? 'custom' : 'catalog',
+      contractStatus: contract.contractStatus,
+      warningLevel: contract.warningLevel,
+      billingCycle: contract.billingCycle,
+      planStartAt: contract.planStartAt,
+      planEndsAt: contract.planEndsAt,
+      nextRenewalAt: contract.nextRenewalAt,
+      autoRenew: contract.autoRenew,
+      remainingDays: contract.remainingDays,
+      monthlyPrice,
+      maxUsers,
+      totalUsers,
+      remainingUsers,
+      maxWorkOrders,
+      activeOrders,
+      remainingWorkOrders,
+      features: customPlan?.features ?? (plan?.features ? JSON.parse(plan.features) : []),
+      monthlyRevenue: tenant.workOrders.reduce((sum, order) => sum + order.totalCost, 0),
+    };
+  }
+
   async listTenantsForSuperadmin(viewer: SessionUser) {
     this.assertSuperadmin(viewer);
     await this.ensureAdminTables();

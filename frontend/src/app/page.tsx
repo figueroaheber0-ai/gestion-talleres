@@ -126,6 +126,13 @@ export default function Home() {
               hint="Ver experiencia del cliente final"
               onClick={() => router.push("/portal")}
             />
+            {user?.role === "owner" ? (
+              <ActionButton
+                label="Estado de cuenta"
+                hint="Plan contratado, vigencia y capacidad"
+                onClick={() => router.push("/cuenta")}
+              />
+            ) : null}
           </div>
         </section>
       </div>

@@ -255,6 +255,12 @@ export class AuthController {
     return this.authService.listStaffInvites(viewer);
   }
 
+  @Get('owner/account-status')
+  async ownerAccountStatus(@Headers('authorization') authorization?: string) {
+    const viewer = await this.authService.requireSession(authorization, 'staff');
+    return this.authService.getOwnerAccountStatus(viewer);
+  }
+
   @Post('staff/invites')
   async createStaffInvite(
     @Headers('authorization') authorization?: string,
