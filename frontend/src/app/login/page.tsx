@@ -1,311 +1,370 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth, UserRole } from "@/context/AuthContext";
 import type { TenantChoice } from "@/lib/auth-api";
 
-type TabRole = "employee" | "owner";
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const BENEFITS = [
-  "Controla los autos en tu taller",
-  "Organiza turnos y trabajos",
-  "Gestiona todo desde un solo lugar",
-];
-
-const METRICS = [
-  { value: "24/7", label: "Visibilidad del trabajo" },
-  { value: "1", label: "Sistema para toda la operacion" },
-  { value: "100%", label: "Foco en orden y control" },
+const VALUE_PROPS = [
+  "Turnos y clientes organizados",
+  "Control de inventario en tiempo real",
+  "Facturacion automatica",
 ];
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
-  const [tab, setTab] = useState<TabRole>("employee");
+
+  const [pageReady, setPageReady] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [tenantChoices, setTenantChoices] = useState<TenantChoice[]>([]);
+  const [touched, setTouched] = useState({ email: false, password: false });
+
+  useEffect(() => {
+    const timer = setTimeout(() => setPageReady(true), 250);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const emailError = useMemo(() => {
+    if (!touched.email) return "";
+    if (!email.trim()) return "El correo electronico es obligatorio.";
+    if (!EMAIL_REGEX.test(email.trim())) return "El email no es valido.";
+    return "";
+  }, [email, touched.email]);
+
+  const passwordError = useMemo(() => {
+    if (!touched.password) return "";
+    if (!password.trim()) return "La contrasena es obligatoria.";
+    if (password.length < 6) return "La contrasena debe tener al menos 6 caracteres.";
+    return "";
+  }, [password, touched.password]);
+
+  const isFormValid =
+    EMAIL_REGEX.test(email.trim()) &&
+    password.trim().length >= 6 &&
+    !emailError &&
+    !passwordError;
 
   const redirectByRole = (role: UserRole) => {
     router.push(role === "superadmin" ? "/superadmin" : "/");
   };
 
-  const resetForTab = (next: TabRole) => {
-    setTab(next);
-    setEmail("");
-    setPassword("");
-    setError("");
-    setTenantChoices([]);
-  };
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setTouched({ email: true, password: true });
+    setErrorMessage("");
+    setSuccessMessage("");
+    setTenantChoices([]);
+
+    if (!isFormValid) {
+      setErrorMessage("Revisa los datos ingresados para continuar.");
+      return;
+    }
+
     setLoading(true);
-    setError("");
-
-    const result = await login(email, password);
-
+    const result = await login(email.trim(), password);
     setLoading(false);
+
     if (result.requiresTenantSelection) {
       setTenantChoices(result.accounts ?? []);
       return;
     }
+
     if (result.success) {
-      redirectByRole(email.toLowerCase().trim() === "herber.superadmin@81cc.app" ? "superadmin" : tab);
+      if (!rememberMe) {
+        localStorage.removeItem("81cc_session_token");
+      }
+      setSuccessMessage("Acceso correcto. Redirigiendo...");
+      setTimeout(() => {
+        redirectByRole(email.toLowerCase().trim() === "herber.superadmin@81cc.app" ? "superadmin" : "owner");
+      }, 280);
       return;
     }
 
-    setError(result.error ?? "No se pudo iniciar sesion.");
+    setErrorMessage(result.error ?? "No se pudo iniciar sesion.");
   };
 
   const handleTenantSelection = async (tenantId: string) => {
     setLoading(true);
-    setError("");
-    const result = await login(email, password, tenantId);
+    setErrorMessage("");
+    setSuccessMessage("");
+    const result = await login(email.trim(), password, tenantId);
     setLoading(false);
 
     if (result.success) {
-      redirectByRole(tab);
+      setSuccessMessage("Sesion iniciada. Redirigiendo...");
+      setTimeout(() => redirectByRole("owner"), 280);
       return;
     }
 
-    setError(result.error ?? "No se pudo iniciar sesion en el taller seleccionado.");
+    setErrorMessage(result.error ?? "No se pudo iniciar sesion en el taller seleccionado.");
   };
 
-  return (
-    <div className="auth-shell relative min-h-screen overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-8rem] top-[-6rem] h-72 w-72 rounded-full bg-[#FFE707]/14 blur-3xl" />
-        <div className="absolute right-[-10rem] top-10 h-96 w-96 rounded-full bg-white/8 blur-3xl" />
-        <div className="absolute bottom-[-8rem] left-1/3 h-80 w-80 rounded-full bg-[#2400A2]/60 blur-3xl" />
-        <div className="absolute inset-x-6 top-6 bottom-6 rounded-[2rem] border border-white/8" />
-      </div>
-
-      <div className="relative mx-auto flex min-h-screen max-w-7xl items-center px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <div className="grid w-full items-stretch gap-6 lg:grid-cols-[1.08fr_minmax(420px,480px)] lg:gap-10">
-          <section className="hidden min-h-[640px] flex-col justify-between rounded-[2rem] border border-white/10 bg-white/6 p-10 text-white shadow-[0_28px_80px_rgba(8,4,27,0.34)] backdrop-blur-sm lg:flex">
-            <div className="max-w-xl">
-              <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#FFE707]">
-                Sistema para talleres mecanicos
-              </div>
-
-              <div className="mt-8">
-                <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[#8A8A80]">Taller 2R</p>
-                <h1 className="mt-4 max-w-xl text-5xl font-extrabold leading-[0.94] text-white" data-display="true">
-                  Control total de tu taller mecanico
-                </h1>
-                <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/72">
-                  Una plataforma pensada para duenos de taller que necesitan orden, visibilidad y control diario sin
-                  depender de procesos improvisados.
-                </p>
-              </div>
-
-              <div className="mt-10 space-y-4">
-                {BENEFITS.map((benefit) => (
-                  <div
-                    key={benefit}
-                    className="flex items-center gap-4 rounded-2xl border border-white/10 bg-[#FFFFFF]/5 px-4 py-4"
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFE707] text-sm font-extrabold text-[#190B47]">
-                      2R
-                    </span>
-                    <p className="text-base font-medium text-white">{benefit}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-3">
-              {METRICS.map((metric) => (
-                <div
-                  key={metric.label}
-                  className="rounded-[1.6rem] border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-5"
-                >
-                  <p className="text-3xl font-extrabold text-[#FFE707]" data-display="true">
-                    {metric.value}
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed text-white/72">{metric.label}</p>
-                </div>
-              ))}
+  if (!pageReady) {
+    return (
+      <main className="min-h-screen bg-[#f8fafc] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-5">
+          <section className="animate-pulse rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 to-indigo-900 p-6 lg:col-span-3">
+            <div className="h-6 w-2/3 rounded bg-white/30" />
+            <div className="mt-4 h-4 w-3/4 rounded bg-white/20" />
+            <div className="mt-7 space-y-3">
+              <div className="h-10 rounded bg-white/15" />
+              <div className="h-10 rounded bg-white/15" />
+              <div className="h-10 rounded bg-white/15" />
             </div>
           </section>
-
-          <section className="flex items-center justify-center">
-            <div className="auth-card w-full rounded-[2rem] p-5 text-white sm:p-7 lg:p-8">
-              <div className="mb-8 lg:hidden">
-                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#8A8A80]">Taller 2R</p>
-                <h1 className="mt-3 text-3xl font-extrabold text-white" data-display="true">
-                  Control total de tu taller mecanico
-                </h1>
-                <p className="mt-3 text-sm leading-relaxed text-white/74">
-                  Controla los autos, organiza turnos y lleva tu operacion desde un solo lugar.
-                </p>
-              </div>
-
-              <div className="mb-6 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#8A8A80]">Acceso seguro</p>
-                  <h2 className="mt-2 text-3xl font-extrabold text-white" data-display="true">
-                    Ingresar al sistema
-                  </h2>
-                  <p className="mt-2 max-w-sm text-sm text-white/74">
-                    Inicia sesion para ver el estado del taller, las ordenes activas y el trabajo del dia.
-                  </p>
-                </div>
-                <div className="hidden rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-right sm:block">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8A8A80]">Producto</p>
-                  <p className="mt-1 text-lg font-extrabold text-white">Taller 2R</p>
-                </div>
-              </div>
-
-              <div className="mb-6 grid gap-3 rounded-[1.5rem] border border-white/10 bg-[#190B47]/55 p-3 sm:grid-cols-3">
-                {BENEFITS.map((benefit) => (
-                  <div key={benefit} className="rounded-[1.2rem] border border-white/6 bg-white/5 px-3 py-3">
-                    <p className="text-sm font-medium leading-snug text-white/82">{benefit}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mb-6 flex gap-1 rounded-[1.35rem] border border-white/10 bg-[#190B47]/70 p-1.5">
-                <button
-                  type="button"
-                  onClick={() => resetForTab("employee")}
-                  className={`flex-1 rounded-[1rem] px-3 py-3 text-sm font-bold transition ${
-                    tab === "employee"
-                      ? "bg-[#FFE707] text-[#190B47] shadow-[0_14px_32px_rgba(255,231,7,0.22)]"
-                      : "text-white/70 hover:text-white"
-                  }`}
-                >
-                  Empleado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => resetForTab("owner")}
-                  className={`flex-1 rounded-[1rem] px-3 py-3 text-sm font-bold transition ${
-                    tab === "owner"
-                      ? "bg-white text-[#190B47] shadow-[0_14px_32px_rgba(255,255,255,0.16)]"
-                      : "text-white/70 hover:text-white"
-                  }`}
-                >
-                  Dueno / Admin
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <Field label="Correo electronico">
-                  <input
-                    id="email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => {
-                      setEmail(event.target.value);
-                      setError("");
-                      setTenantChoices([]);
-                    }}
-                    placeholder={tab === "employee" ? "mecanico@taller2r.com" : "dueno@taller2r.com"}
-                    className="w-full rounded-[1.2rem] border border-[#8A8A80]/35 bg-[#190B47]/68 px-4 py-3.5 text-white placeholder:text-[#8A8A80] outline-none transition focus:border-[#FFE707] focus:ring-4 focus:ring-[#FFE707]/15"
-                  />
-                </Field>
-
-                <Field label="Contrasena">
-                  <div className="relative">
-                    <input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      required
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(event) => {
-                        setPassword(event.target.value);
-                        setError("");
-                        setTenantChoices([]);
-                      }}
-                      placeholder="Ingresa tu contrasena"
-                      className="w-full rounded-[1.2rem] border border-[#8A8A80]/35 bg-[#190B47]/68 px-4 py-3.5 pr-16 text-white placeholder:text-[#8A8A80] outline-none transition focus:border-[#FFE707] focus:ring-4 focus:ring-[#FFE707]/15"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((value) => !value)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8A8A80] transition hover:text-white"
-                    >
-                      {showPassword ? "Ocultar" : "Ver"}
-                    </button>
-                  </div>
-                  <div className="mt-2 text-right">
-                    <Link href="/forgot-password" className="text-sm font-medium text-[#FFE707] transition hover:text-white">
-                      ¿Olvidaste tu contraseña?
-                    </Link>
-                  </div>
-                </Field>
-
-                {error ? (
-                  <div className="rounded-[1.2rem] border border-red-300/20 bg-red-950/35 px-4 py-3 text-sm text-red-100">
-                    {error}
-                  </div>
-                ) : null}
-
-                {tenantChoices.length ? (
-                  <div className="rounded-[1.4rem] border border-[#FFE707]/25 bg-[#190B47]/72 px-4 py-4 text-sm text-white">
-                    <p className="font-semibold text-[#FFE707]">Este usuario trabaja en varios talleres.</p>
-                    <p className="mt-1 text-white/74">Selecciona donde quieres iniciar esta sesion.</p>
-                    <div className="mt-3 space-y-2.5">
-                      {tenantChoices.map((account) => (
-                        <button
-                          key={account.tenantId}
-                          type="button"
-                          onClick={() => void handleTenantSelection(account.tenantId)}
-                          className="w-full rounded-[1rem] border border-white/10 bg-white/6 px-4 py-3 text-left font-semibold text-white transition hover:border-[#FFE707]/40 hover:bg-white/10"
-                        >
-                          {account.tenantName}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                <button
-                  id="login-btn"
-                  type="submit"
-                  disabled={loading}
-                  className="flex w-full items-center justify-center rounded-[1.2rem] bg-[#FFE707] px-4 py-3.5 text-base font-extrabold text-[#190B47] transition hover:brightness-95 focus:outline-none focus:ring-4 focus:ring-[#FFE707]/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loading ? "Ingresando..." : "Ingresar"}
-                </button>
-              </form>
-
-              <div className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-5 text-sm">
-                <Link href="/registro" className="font-semibold text-[#FFE707] transition hover:text-white">
-                  No tenes cuenta? Crear cuenta
-                </Link>
-                <div className="flex flex-wrap gap-x-5 gap-y-2">
-                  <Link href="/registro-equipo" className="font-medium text-white/72 transition hover:text-white">
-                    Aceptar invitacion de equipo
-                  </Link>
-                  <Link href="/portal" className="font-medium text-white/72 transition hover:text-white">
-                    Portal para clientes
-                  </Link>
-                </div>
-              </div>
-            </div>
+          <section className="animate-pulse rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2">
+            <div className="h-6 w-1/2 rounded bg-slate-200" />
+            <div className="mt-5 h-11 rounded bg-slate-200" />
+            <div className="mt-3 h-11 rounded bg-slate-200" />
+            <div className="mt-6 h-11 rounded bg-slate-300" />
           </section>
         </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f8fafc] px-4 py-6 text-slate-800 sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-5">
+        <section className="login-fade-in relative order-1 overflow-hidden rounded-2xl border border-indigo-500/20 bg-[linear-gradient(140deg,#0f172a_0%,#1e293b_25%,#1e1b4b_70%,#7c3aed_100%)] p-6 text-white shadow-[0_20px_70px_rgba(30,41,59,0.28)] lg:col-span-3 lg:p-8">
+          <div className="pointer-events-none absolute -right-16 top-10 h-56 w-56 rounded-full bg-blue-400/25 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 left-8 h-56 w-56 rounded-full bg-violet-500/30 blur-3xl" />
+
+          <h1 className="max-w-xl text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
+            Gestion de taller simplificada
+          </h1>
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-200 sm:text-base">
+            81cc centraliza turnos, inventario, clientes y facturacion para que tomes decisiones con informacion en tiempo real.
+          </p>
+
+          <ul className="mt-6 space-y-3">
+            {VALUE_PROPS.map((item) => (
+              <li key={item} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/10 px-4 py-3">
+                <CheckIcon />
+                <span className="text-sm font-medium text-slate-100 sm:text-base">{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-7 rounded-xl border border-white/15 bg-[#0f172a]/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200">Vista de dashboard</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <div className="rounded-lg border border-white/10 bg-white/10 p-3">
+                <p className="text-xs text-slate-300">Turnos de hoy</p>
+                <p className="mt-1 text-xl font-semibold">18</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/10 p-3">
+                <p className="text-xs text-slate-300">OT activas</p>
+                <p className="mt-1 text-xl font-semibold">11</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/10 p-3">
+                <p className="text-xs text-slate-300">Facturado</p>
+                <p className="mt-1 text-xl font-semibold">$2.4M</p>
+              </div>
+            </div>
+          </div>
+
+          <blockquote className="mt-6 rounded-xl border border-blue-300/20 bg-blue-900/30 p-4 text-sm leading-relaxed text-blue-100">
+            &quot;Pase de Excel a 81cc y recupere 5 horas por semana&quot; - Carlos M., Taller San Martin
+          </blockquote>
+
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-900/25 px-4 py-2 text-xs font-semibold text-emerald-100">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-200" aria-hidden="true" />
+            Datos seguros y encriptados
+          </div>
+        </section>
+
+        <section className="login-fade-in order-2 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_16px_50px_rgba(30,41,59,0.10)] lg:col-span-2 lg:p-8">
+          <Link href="/" className="inline-flex items-center text-2xl font-bold tracking-tight text-[#1e293b]">
+            <span className="logo-pulse">81</span>
+            <span className="text-[#2563eb]">cc</span>
+          </Link>
+          <h2 className="mt-5 text-2xl font-semibold text-slate-900">Bienvenido a 81cc</h2>
+          <p className="mt-2 text-sm text-slate-600">Plataforma integral para talleres mecanicos</p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+            <div>
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
+                Correo electronico
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                aria-label="Correo electronico"
+                aria-invalid={Boolean(emailError)}
+                aria-describedby={emailError ? "email-error" : undefined}
+                value={email}
+                onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setErrorMessage("");
+                }}
+                placeholder="tu@taller.com"
+                className={`h-11 w-full rounded-lg border px-3 text-sm outline-none transition focus:ring-2 focus:ring-[#2563eb]/25 ${
+                  emailError ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-[#2563eb]"
+                }`}
+              />
+              {emailError ? (
+                <p id="email-error" className="mt-1 text-xs font-medium text-red-600">
+                  {emailError}
+                </p>
+              ) : null}
+            </div>
+
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+                  Contrasena
+                </label>
+                <Link href="/forgot-password" className="text-xs font-medium text-slate-500 hover:text-slate-700">
+                  Olvidaste tu contrasena?
+                </Link>
+              </div>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  aria-label="Contrasena"
+                  aria-invalid={Boolean(passwordError)}
+                  aria-describedby={passwordError ? "password-error" : undefined}
+                  value={password}
+                  onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setErrorMessage("");
+                  }}
+                  placeholder="Ingresa tu contrasena"
+                  className={`h-11 w-full rounded-lg border px-3 pr-16 text-sm outline-none transition focus:ring-2 focus:ring-[#2563eb]/25 ${
+                    passwordError ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-[#2563eb]"
+                  }`}
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500 transition hover:text-slate-700"
+                >
+                  {showPassword ? "Ocultar" : "Ver"}
+                </button>
+              </div>
+              {passwordError ? (
+                <p id="password-error" className="mt-1 text-xs font-medium text-red-600">
+                  {passwordError}
+                </p>
+              ) : null}
+            </div>
+
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-[#2563eb] focus:ring-[#2563eb]"
+              />
+              Recordarme
+            </label>
+
+            {errorMessage ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</div>
+            ) : null}
+            {successMessage ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                {successMessage}
+              </div>
+            ) : null}
+
+            {tenantChoices.length ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <p className="text-sm font-semibold text-blue-900">Este usuario trabaja en varios talleres.</p>
+                <p className="mt-1 text-xs text-blue-700">Selecciona donde quieres iniciar esta sesion.</p>
+                <div className="mt-2 space-y-2">
+                  {tenantChoices.map((account) => (
+                    <button
+                      key={account.tenantId}
+                      type="button"
+                      onClick={() => void handleTenantSelection(account.tenantId)}
+                      className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-left text-sm font-medium text-blue-900 hover:bg-blue-100"
+                    >
+                      {account.tenantName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <button
+              id="login-btn"
+              type="submit"
+              disabled={loading}
+              className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-4 text-sm font-semibold text-white transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/35 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {loading ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Iniciando sesion...
+                </>
+              ) : (
+                "Iniciar sesion"
+              )}
+            </button>
+          </form>
+
+          <div className="my-4 flex items-center gap-3">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">o</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          <button
+            type="button"
+            disabled
+            className="flex h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-500"
+          >
+            Continuar con Google (proximamente)
+          </button>
+
+          <div className="mt-5 space-y-2 text-sm">
+            <p className="text-slate-600">
+              No tenes cuenta?{" "}
+              <Link href="/demo" className="font-semibold text-[#2563eb] hover:text-[#1d4ed8]">
+                Solicitar demo
+              </Link>
+            </p>
+            <Link href="/demo" className="inline-block font-medium text-slate-500 hover:text-slate-700">
+              Ver demo sin registrarme
+            </Link>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function CheckIcon() {
   return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-semibold text-white">{label}</span>
-      {children}
-    </label>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="mt-0.5 h-5 w-5 shrink-0 text-[#93c5fd]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
   );
 }
