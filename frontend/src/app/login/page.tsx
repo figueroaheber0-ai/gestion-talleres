@@ -2,8 +2,9 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, UserRole } from "@/context/AuthContext";
+import { API_BASE_URL } from "@/lib/auth-api";
 import type { TenantChoice } from "@/lib/auth-api";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -11,12 +12,14 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALUE_PROPS = [
   "Turnos y clientes organizados",
   "Control de inventario en tiempo real",
-  "Facturacion automatica",
+  "Facturación automática",
 ];
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
+  const googleErrorParam = searchParams.get("googleError");
 
   const [pageReady, setPageReady] = useState(false);
   const [email, setEmail] = useState("");
@@ -24,27 +27,42 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [tenantChoices, setTenantChoices] = useState<TenantChoice[]>([]);
   const [touched, setTouched] = useState({ email: false, password: false });
 
   useEffect(() => {
-    const timer = setTimeout(() => setPageReady(true), 250);
+    const timer = setTimeout(() => setPageReady(true), 220);
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    const googleToken = searchParams.get("googleToken");
+    const googleRole = searchParams.get("googleRole");
+
+    if (!googleToken) return;
+
+    localStorage.setItem("81cc_session_token", googleToken);
+
+    const destination = googleRole === "superadmin" ? "/superadmin" : "/";
+    setTimeout(() => {
+      router.replace(destination);
+    }, 280);
+  }, [router, searchParams]);
+
   const emailError = useMemo(() => {
     if (!touched.email) return "";
-    if (!email.trim()) return "El correo electronico es obligatorio.";
-    if (!EMAIL_REGEX.test(email.trim())) return "El email no es valido.";
+    if (!email.trim()) return "El correo electrónico es obligatorio.";
+    if (!EMAIL_REGEX.test(email.trim())) return "El email no es válido.";
     return "";
   }, [email, touched.email]);
 
   const passwordError = useMemo(() => {
     if (!touched.password) return "";
-    if (!password.trim()) return "La contrasena es obligatoria.";
-    if (password.length < 6) return "La contrasena debe tener al menos 6 caracteres.";
+    if (!password.trim()) return "La contraseña es obligatoria.";
+    if (password.length < 6) return "La contraseña debe tener al menos 6 caracteres.";
     return "";
   }, [password, touched.password]);
 
@@ -66,7 +84,7 @@ export default function LoginPage() {
     setTenantChoices([]);
 
     if (!isFormValid) {
-      setErrorMessage("Revisa los datos ingresados para continuar.");
+      setErrorMessage("Revisá los datos ingresados para continuar.");
       return;
     }
 
@@ -86,11 +104,11 @@ export default function LoginPage() {
       setSuccessMessage("Acceso correcto. Redirigiendo...");
       setTimeout(() => {
         redirectByRole(email.toLowerCase().trim() === "herber.superadmin@81cc.app" ? "superadmin" : "owner");
-      }, 280);
+      }, 260);
       return;
     }
 
-    setErrorMessage(result.error ?? "No se pudo iniciar sesion.");
+    setErrorMessage(result.error ?? "No se pudo iniciar sesión.");
   };
 
   const handleTenantSelection = async (tenantId: string) => {
@@ -101,19 +119,24 @@ export default function LoginPage() {
     setLoading(false);
 
     if (result.success) {
-      setSuccessMessage("Sesion iniciada. Redirigiendo...");
-      setTimeout(() => redirectByRole("owner"), 280);
+      setSuccessMessage("Sesión iniciada. Redirigiendo...");
+      setTimeout(() => redirectByRole("owner"), 260);
       return;
     }
 
-    setErrorMessage(result.error ?? "No se pudo iniciar sesion en el taller seleccionado.");
+    setErrorMessage(result.error ?? "No se pudo iniciar sesión en el taller seleccionado.");
+  };
+
+  const handleGoogleLogin = () => {
+    setGoogleLoading(true);
+    window.location.href = `${API_BASE_URL}/auth/google/start`;
   };
 
   if (!pageReady) {
     return (
-      <main className="min-h-screen bg-[#f8fafc] px-4 py-6 sm:px-6 lg:px-8">
+      <main className="min-h-screen bg-[#190B47] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-5">
-          <section className="animate-pulse rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 to-indigo-900 p-6 lg:col-span-3">
+          <section className="animate-pulse rounded-2xl border border-white/10 bg-[#2400A2] p-6 lg:col-span-3">
             <div className="h-6 w-2/3 rounded bg-white/30" />
             <div className="mt-4 h-4 w-3/4 rounded bg-white/20" />
             <div className="mt-7 space-y-3">
@@ -122,11 +145,11 @@ export default function LoginPage() {
               <div className="h-10 rounded bg-white/15" />
             </div>
           </section>
-          <section className="animate-pulse rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2">
-            <div className="h-6 w-1/2 rounded bg-slate-200" />
-            <div className="mt-5 h-11 rounded bg-slate-200" />
-            <div className="mt-3 h-11 rounded bg-slate-200" />
-            <div className="mt-6 h-11 rounded bg-slate-300" />
+          <section className="animate-pulse rounded-2xl border border-white/10 bg-[#2400A2] p-6 lg:col-span-2">
+            <div className="h-6 w-1/2 rounded bg-white/30" />
+            <div className="mt-5 h-11 rounded bg-white/20" />
+            <div className="mt-3 h-11 rounded bg-white/20" />
+            <div className="mt-6 h-11 rounded bg-white/25" />
           </section>
         </div>
       </main>
@@ -134,75 +157,75 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] px-4 py-6 text-slate-800 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#190B47] px-4 py-6 text-[#FFFFFF] sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-5">
-        <section className="login-fade-in relative order-1 overflow-hidden rounded-2xl border border-indigo-500/20 bg-[linear-gradient(140deg,#0f172a_0%,#1e293b_25%,#1e1b4b_70%,#7c3aed_100%)] p-6 text-white shadow-[0_20px_70px_rgba(30,41,59,0.28)] lg:col-span-3 lg:p-8">
-          <div className="pointer-events-none absolute -right-16 top-10 h-56 w-56 rounded-full bg-blue-400/25 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-16 left-8 h-56 w-56 rounded-full bg-violet-500/30 blur-3xl" />
+        <section className="login-fade-in relative order-1 overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(140deg,#190B47_0%,#2400A2_78%,#190B47_100%)] p-6 text-white shadow-[0_24px_70px_rgba(3,1,18,0.35)] lg:order-2 lg:col-span-3 lg:p-8">
+          <div className="pointer-events-none absolute -right-16 top-10 h-56 w-56 rounded-full bg-[#FFE707]/15 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 left-8 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
 
           <h1 className="max-w-xl text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
-            Gestion de taller simplificada
+            Gestión de taller simplificada
           </h1>
-          <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-200 sm:text-base">
-            81cc centraliza turnos, inventario, clientes y facturacion para que tomes decisiones con informacion en tiempo real.
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/85 sm:text-base">
+            81cc centraliza turnos, inventario, clientes y facturación para que tomes decisiones con información en tiempo real.
           </p>
 
           <ul className="mt-6 space-y-3">
             {VALUE_PROPS.map((item) => (
-              <li key={item} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/10 px-4 py-3">
+              <li key={item} className="flex items-start gap-3 rounded-xl border border-white/15 bg-white/10 px-4 py-3">
                 <CheckIcon />
-                <span className="text-sm font-medium text-slate-100 sm:text-base">{item}</span>
+                <span className="text-sm font-medium text-white sm:text-base">{item}</span>
               </li>
             ))}
           </ul>
 
-          <div className="mt-7 rounded-xl border border-white/15 bg-[#0f172a]/70 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200">Vista de dashboard</p>
+          <div className="mt-7 rounded-xl border border-white/15 bg-[#190B47]/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8A8A80]">Vista de dashboard</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <div className="rounded-lg border border-white/10 bg-white/10 p-3">
-                <p className="text-xs text-slate-300">Turnos de hoy</p>
+              <div className="rounded-lg border border-white/15 bg-white/10 p-3">
+                <p className="text-xs text-white/75">Turnos de hoy</p>
                 <p className="mt-1 text-xl font-semibold">18</p>
               </div>
-              <div className="rounded-lg border border-white/10 bg-white/10 p-3">
-                <p className="text-xs text-slate-300">OT activas</p>
+              <div className="rounded-lg border border-white/15 bg-white/10 p-3">
+                <p className="text-xs text-white/75">OT activas</p>
                 <p className="mt-1 text-xl font-semibold">11</p>
               </div>
-              <div className="rounded-lg border border-white/10 bg-white/10 p-3">
-                <p className="text-xs text-slate-300">Facturado</p>
+              <div className="rounded-lg border border-white/15 bg-white/10 p-3">
+                <p className="text-xs text-white/75">Facturado</p>
                 <p className="mt-1 text-xl font-semibold">$2.4M</p>
               </div>
             </div>
           </div>
 
-          <blockquote className="mt-6 rounded-xl border border-blue-300/20 bg-blue-900/30 p-4 text-sm leading-relaxed text-blue-100">
-            &quot;Pase de Excel a 81cc y recupere 5 horas por semana&quot; - Carlos M., Taller San Martin
+          <blockquote className="mt-6 rounded-xl border border-[#474211] bg-[#474211]/15 p-4 text-sm leading-relaxed text-white">
+            &quot;Pasé de Excel a 81cc y recuperé 5 horas por semana&quot; - Carlos M., Taller San Martín
           </blockquote>
 
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-900/25 px-4 py-2 text-xs font-semibold text-emerald-100">
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-200" aria-hidden="true" />
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white">
+            <span className="inline-block h-2 w-2 rounded-full bg-[#FFE707]" aria-hidden="true" />
             Datos seguros y encriptados
           </div>
         </section>
 
-        <section className="login-fade-in order-2 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_16px_50px_rgba(30,41,59,0.10)] lg:col-span-2 lg:p-8">
-          <Link href="/" className="inline-flex items-center text-2xl font-bold tracking-tight text-[#1e293b]">
+        <section className="login-fade-in order-2 rounded-2xl border border-white/15 bg-[#2400A2] p-6 shadow-[0_18px_55px_rgba(3,1,18,0.35)] lg:order-1 lg:col-span-2 lg:p-8">
+          <Link href="/" className="inline-flex items-center text-2xl font-bold tracking-tight text-white">
             <span className="logo-pulse">81</span>
-            <span className="text-[#2563eb]">cc</span>
+            <span className="text-[#FFE707]">cc</span>
           </Link>
-          <h2 className="mt-5 text-2xl font-semibold text-slate-900">Bienvenido a 81cc</h2>
-          <p className="mt-2 text-sm text-slate-600">Plataforma integral para talleres mecanicos</p>
+          <h2 className="mt-5 text-2xl font-semibold text-white">Bienvenido a 81cc</h2>
+          <p className="mt-2 text-sm text-[#8A8A80]">Plataforma integral para talleres mecánicos</p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
             <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Correo electronico
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-white">
+                Correo electrónico
               </label>
               <input
                 id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
-                aria-label="Correo electronico"
+                aria-label="Correo electrónico"
                 aria-invalid={Boolean(emailError)}
                 aria-describedby={emailError ? "email-error" : undefined}
                 value={email}
@@ -212,12 +235,12 @@ export default function LoginPage() {
                   setErrorMessage("");
                 }}
                 placeholder="tu@taller.com"
-                className={`h-11 w-full rounded-lg border px-3 text-sm outline-none transition focus:ring-2 focus:ring-[#2563eb]/25 ${
-                  emailError ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-[#2563eb]"
+                className={`h-11 w-full rounded-lg border bg-[#190B47]/65 px-3 text-sm text-white outline-none transition focus:ring-2 focus:ring-[#FFE707]/30 ${
+                  emailError ? "border-red-300 focus:border-red-300" : "border-[#8A8A80]/45 focus:border-[#FFE707]"
                 }`}
               />
               {emailError ? (
-                <p id="email-error" className="mt-1 text-xs font-medium text-red-600">
+                <p id="email-error" className="mt-1 text-xs font-medium text-red-200">
                   {emailError}
                 </p>
               ) : null}
@@ -225,11 +248,11 @@ export default function LoginPage() {
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label htmlFor="password" className="block text-sm font-medium text-slate-700">
-                  Contrasena
+                <label htmlFor="password" className="block text-sm font-medium text-white">
+                  Contraseña
                 </label>
-                <Link href="/forgot-password" className="text-xs font-medium text-slate-500 hover:text-slate-700">
-                  Olvidaste tu contrasena?
+                <Link href="/forgot-password" className="text-xs font-medium text-[#8A8A80] hover:text-white">
+                  ¿Olvidaste tu contraseña?
                 </Link>
               </div>
               <div className="relative">
@@ -238,7 +261,7 @@ export default function LoginPage() {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  aria-label="Contrasena"
+                  aria-label="Contraseña"
                   aria-invalid={Boolean(passwordError)}
                   aria-describedby={passwordError ? "password-error" : undefined}
                   value={password}
@@ -247,57 +270,59 @@ export default function LoginPage() {
                     setPassword(event.target.value);
                     setErrorMessage("");
                   }}
-                  placeholder="Ingresa tu contrasena"
-                  className={`h-11 w-full rounded-lg border px-3 pr-16 text-sm outline-none transition focus:ring-2 focus:ring-[#2563eb]/25 ${
-                    passwordError ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-[#2563eb]"
+                  placeholder="Ingresa tu contraseña"
+                  className={`h-11 w-full rounded-lg border bg-[#190B47]/65 px-3 pr-16 text-sm text-white outline-none transition focus:ring-2 focus:ring-[#FFE707]/30 ${
+                    passwordError ? "border-red-300 focus:border-red-300" : "border-[#8A8A80]/45 focus:border-[#FFE707]"
                   }`}
                 />
                 <button
                   type="button"
-                  aria-label={showPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500 transition hover:text-slate-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#8A8A80] transition hover:text-white"
                 >
                   {showPassword ? "Ocultar" : "Ver"}
                 </button>
               </div>
               {passwordError ? (
-                <p id="password-error" className="mt-1 text-xs font-medium text-red-600">
+                <p id="password-error" className="mt-1 text-xs font-medium text-red-200">
                   {passwordError}
                 </p>
               ) : null}
             </div>
 
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-white">
               <input
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(event) => setRememberMe(event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-[#2563eb] focus:ring-[#2563eb]"
+                className="h-4 w-4 rounded border-[#8A8A80]/60 bg-transparent text-[#FFE707] focus:ring-[#FFE707]"
               />
               Recordarme
             </label>
 
-            {errorMessage ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</div>
+            {errorMessage || googleErrorParam ? (
+              <div className="rounded-lg border border-red-300/35 bg-red-950/35 px-3 py-2 text-sm text-red-100">
+                {errorMessage || googleErrorParam}
+              </div>
             ) : null}
             {successMessage ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              <div className="rounded-lg border border-emerald-300/35 bg-emerald-950/35 px-3 py-2 text-sm text-emerald-100">
                 {successMessage}
               </div>
             ) : null}
 
             {tenantChoices.length ? (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                <p className="text-sm font-semibold text-blue-900">Este usuario trabaja en varios talleres.</p>
-                <p className="mt-1 text-xs text-blue-700">Selecciona donde quieres iniciar esta sesion.</p>
+              <div className="rounded-lg border border-[#8A8A80]/40 bg-[#190B47]/60 p-3">
+                <p className="text-sm font-semibold text-white">Este usuario trabaja en varios talleres.</p>
+                <p className="mt-1 text-xs text-[#8A8A80]">Selecciona dónde quieres iniciar esta sesión.</p>
                 <div className="mt-2 space-y-2">
                   {tenantChoices.map((account) => (
                     <button
                       key={account.tenantId}
                       type="button"
                       onClick={() => void handleTenantSelection(account.tenantId)}
-                      className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-left text-sm font-medium text-blue-900 hover:bg-blue-100"
+                      className="w-full rounded-lg border border-[#8A8A80]/40 bg-[#2400A2] px-3 py-2 text-left text-sm font-medium text-white transition hover:border-[#FFE707]/65 hover:bg-[#190B47]"
                     >
                       {account.tenantName}
                     </button>
@@ -310,42 +335,50 @@ export default function LoginPage() {
               id="login-btn"
               type="submit"
               disabled={loading}
-              className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-4 text-sm font-semibold text-white transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/35 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#FFE707] px-4 text-sm font-semibold text-[#190B47] transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-[#FFE707]/50 disabled:cursor-not-allowed disabled:opacity-55"
             >
               {loading ? (
                 <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  Iniciando sesion...
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#190B47]/30 border-t-[#190B47]" />
+                  Iniciando sesión...
                 </>
               ) : (
-                "Iniciar sesion"
+                "Iniciar sesión"
               )}
             </button>
           </form>
 
           <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">o</span>
-            <span className="h-px flex-1 bg-slate-200" />
+            <span className="h-px flex-1 bg-[#8A8A80]/35" />
+            <span className="text-xs font-medium uppercase tracking-wide text-[#8A8A80]">o</span>
+            <span className="h-px flex-1 bg-[#8A8A80]/35" />
           </div>
 
           <button
             type="button"
-            disabled
-            className="flex h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-500"
+            onClick={handleGoogleLogin}
+            disabled={googleLoading}
+            className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#8A8A80]/45 bg-[#190B47]/55 px-4 text-sm font-semibold text-white transition hover:border-[#FFE707]/60 hover:bg-[#190B47] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Continuar con Google (proximamente)
+            {googleLoading ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Redirigiendo a Google...
+              </>
+            ) : (
+              "Continuar con Google"
+            )}
           </button>
 
           <div className="mt-5 space-y-2 text-sm">
-            <p className="text-slate-600">
-              No tenes cuenta?{" "}
-              <Link href="/demo" className="font-semibold text-[#2563eb] hover:text-[#1d4ed8]">
-                Solicitar demo
+            <p className="text-[#8A8A80]">
+              ¿No tenés cuenta?{" "}
+              <Link href="/registro" className="font-semibold text-[#FFE707] hover:text-white">
+                Crear cuenta
               </Link>
             </p>
-            <Link href="/demo" className="inline-block font-medium text-slate-500 hover:text-slate-700">
-              Ver demo sin registrarme
+            <Link href="/portal" className="inline-block font-medium text-[#8A8A80] hover:text-white">
+              Ver portal de clientes
             </Link>
           </div>
         </section>
@@ -359,7 +392,7 @@ function CheckIcon() {
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
-      className="mt-0.5 h-5 w-5 shrink-0 text-[#93c5fd]"
+      className="mt-0.5 h-5 w-5 shrink-0 text-[#FFE707]"
       fill="none"
       stroke="currentColor"
       strokeWidth="2.5"

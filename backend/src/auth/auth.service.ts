@@ -183,6 +183,58 @@ export class AuthService {
     throw new UnauthorizedException('Email o contrasena invalidos.');
   }
 
+  async loginWithGoogle(email: string, name: string, meta: RequestMeta) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const users = await this.prisma.user.findMany({
+      where: { email: normalizedEmail },
+      include: {
+        tenant: true,
+      },
+    });
+
+    if (!users.length) {
+      throw new UnauthorizedException(
+        'No encontramos una cuenta de 81cc asociada a tu Google.',
+      );
+    }
+
+    const tenantStatuses = await this.getTenantStatusMap(
+      users.map((candidate) => candidate.tenantId),
+    );
+
+    const availableUsers = users.filter(
+      (candidate) =>
+        candidate.role === 'superadmin' ||
+        tenantStatuses.get(candidate.tenantId) !== 'suspended',
+    );
+
+    if (!availableUsers.length) {
+      throw new UnauthorizedException(
+        'Tu taller se encuentra suspendido temporalmente.',
+      );
+    }
+
+    if (availableUsers.length > 1) {
+      throw new UnauthorizedException(
+        'Tu cuenta esta asociada a varios talleres. Inicia sesion con email y contrasena para elegir uno.',
+      );
+    }
+
+    const user = availableUsers[0];
+    return this.createSession(
+      {
+        id: user.id,
+        name: user.name || name,
+        email: user.email,
+        role: user.role,
+        avatar: this.initialsFromName(user.name || name),
+        audience: 'staff',
+        tenantId: user.tenantId,
+      },
+      meta,
+    );
+  }
+
   async loginDemo(role: StaffRole, meta: RequestMeta) {
     const entry = DEMO_USERS[role];
 

@@ -4,9 +4,12 @@ import {
   Get,
   Headers,
   Post,
+  Query,
   Req,
+  Res,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { StaffRole } from './auth.types';
 
@@ -52,6 +55,161 @@ interface AcceptInviteBody {
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  private frontendUrl() {
+    return process.env.FRONTEND_URL?.replace(/\/$/, '') ?? 'http://localhost:3001';
+  }
+
+  private googleCallbackUrl() {
+    return (
+      process.env.GOOGLE_REDIRECT_URI?.trim() ||
+      `${process.env.API_PUBLIC_URL?.replace(/\/$/, '') ?? 'http://localhost:3000'}/auth/google/callback`
+    );
+  }
+
+  private encodeState(payload: { tenantId?: string | null }) {
+    return Buffer.from(JSON.stringify(payload)).toString('base64url');
+  }
+
+  private decodeState(rawState?: string) {
+    if (!rawState) return {};
+    try {
+      const decoded = Buffer.from(rawState, 'base64url').toString('utf8');
+      return JSON.parse(decoded) as { tenantId?: string | null };
+    } catch {
+      return {};
+    }
+  }
+
+  private loginRedirect(params: Record<string, string | number>) {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      search.set(key, String(value));
+    });
+    return `${this.frontendUrl()}/login?${search.toString()}`;
+  }
+
+  @Get('google/start')
+  googleStart(
+    @Res() response: Response,
+    @Query('tenantId') tenantId?: string,
+  ) {
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+
+    if (!clientId) {
+      return response.redirect(
+        this.loginRedirect({
+          googleError: 'Configuracion de Google no disponible',
+        }),
+      );
+    }
+
+    const googleUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    googleUrl.searchParams.set('client_id', clientId);
+    googleUrl.searchParams.set('redirect_uri', this.googleCallbackUrl());
+    googleUrl.searchParams.set('response_type', 'code');
+    googleUrl.searchParams.set('scope', 'openid email profile');
+    googleUrl.searchParams.set('prompt', 'select_account');
+    googleUrl.searchParams.set('state', this.encodeState({ tenantId: tenantId ?? null }));
+
+    return response.redirect(googleUrl.toString());
+  }
+
+  @Get('google/callback')
+  async googleCallback(
+    @Res() response: Response,
+    @Req() request: Request,
+    @Query('code') code?: string,
+    @Query('state') state?: string,
+  ) {
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+
+    if (!clientId || !clientSecret || !code) {
+      return response.redirect(
+        this.loginRedirect({
+          googleError: 'No se pudo validar Google',
+        }),
+      );
+    }
+
+    try {
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: this.googleCallbackUrl(),
+          grant_type: 'authorization_code',
+        }),
+      });
+
+      const tokenPayload = (await tokenResponse.json()) as {
+        access_token?: string;
+      };
+
+      if (!tokenResponse.ok || !tokenPayload.access_token) {
+        return response.redirect(
+          this.loginRedirect({
+            googleError: 'No se pudo completar la autenticacion con Google',
+          }),
+        );
+      }
+
+      const profileResponse = await fetch(
+        'https://openidconnect.googleapis.com/v1/userinfo',
+        {
+          headers: {
+            Authorization: `Bearer ${tokenPayload.access_token}`,
+          },
+        },
+      );
+
+      const profilePayload = (await profileResponse.json()) as {
+        email?: string;
+        name?: string;
+      };
+
+      if (!profileResponse.ok || !profilePayload.email) {
+        return response.redirect(
+          this.loginRedirect({
+            googleError: 'No se pudo leer el perfil de Google',
+          }),
+        );
+      }
+
+      this.decodeState(state);
+
+      const session = await this.authService.loginWithGoogle(
+        profilePayload.email,
+        profilePayload.name ?? profilePayload.email,
+        {
+          userAgent: request.headers['user-agent'],
+          ipAddress: request.ip,
+        },
+      );
+
+      return response.redirect(
+        this.loginRedirect({
+          googleToken: session.token,
+          googleExpiresAt: session.expiresAt,
+          googleRole: session.user.role,
+        }),
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'No se pudo iniciar sesion con Google';
+      return response.redirect(
+        this.loginRedirect({
+          googleError: message,
+        }),
+      );
+    }
+  }
 
   @Post('login')
   login(@Body() body: LoginBody, @Req() request: Request) {
