@@ -150,9 +150,7 @@ function Sidebar() {
 
       <div className="mb-5 rounded-2xl border border-white/12 bg-[#190B47]/60 p-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A8A80]">Taller activo</p>
-        <p className="mt-2 text-sm font-semibold text-white">
-          {user?.tenantId ? "Espacio operativo conectado" : "Cuenta lista"}
-        </p>
+        <p className="mt-2 text-sm font-semibold text-white">{user?.tenantId ? "Espacio operativo conectado" : "Cuenta lista"}</p>
         <p className="mt-1 text-xs text-white/80">Turnos, órdenes, clientes y caja en una sola consola.</p>
       </div>
 
@@ -166,7 +164,7 @@ function Sidebar() {
               className={`flex items-center gap-3 rounded-2xl p-3 text-sm transition-all ${
                 isActive
                   ? "border border-[#FFE707]/45 bg-[#FFE707]/12 font-semibold text-white shadow-[0_10px_30px_rgba(255,231,7,0.16)]"
-                  : "border border-transparent text-[#8A8A80] hover:border-white/12 hover:bg-white/8 hover:text-white"
+                  : "border border-transparent text-white hover:border-white/15 hover:bg-white/10 hover:text-white"
               }`}
             >
               {item.icon}
@@ -191,7 +189,7 @@ function Sidebar() {
         <button
           id="logout-btn"
           onClick={handleLogout}
-          className="group flex w-full items-center gap-2 rounded-2xl border border-white/12 p-3 text-sm font-medium text-[#8A8A80] transition-colors hover:border-red-500/35 hover:bg-red-500/10 hover:text-red-200"
+          className="group flex w-full items-center gap-2 rounded-2xl border border-white/12 p-3 text-sm font-medium text-white transition-colors hover:border-red-500/35 hover:bg-red-500/10 hover:text-red-200"
         >
           <svg className="h-4 w-4 transition-colors group-hover:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -215,7 +213,7 @@ function MobileNav() {
   const mobileItems = NAV_ITEMS.filter((item) => user && item.roles.includes(user.role)).slice(0, 4);
 
   return (
-    <nav className="panel-shell fixed bottom-0 z-50 flex w-full justify-around border-t border-white/12 bg-[#190B47]/95 p-2 pb-safe backdrop-blur md:hidden">
+    <nav className="panel-shell fixed bottom-0 z-50 flex w-full justify-around border-t border-white/12 bg-[#190B47] p-2 pb-safe backdrop-blur md:hidden">
       {mobileItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
         return (
@@ -223,11 +221,11 @@ function MobileNav() {
             key={item.href}
             href={item.href}
             className={`flex min-w-[64px] flex-col items-center rounded-xl px-2 py-2 transition-colors ${
-              isActive ? "bg-[#FFE707]/12 text-[#FFE707]" : "text-[#8A8A80] hover:text-white"
+              isActive ? "bg-[#FFE707]/12 text-[#FFE707]" : "text-white hover:bg-white/5 hover:text-white"
             }`}
           >
             {item.icon}
-            <span className={`mt-1 text-[10px] ${isActive ? "font-bold" : "font-medium"}`}>{item.label.split(" ")[0]}</span>
+            <span className={`mt-1 text-xs ${isActive ? "font-bold" : "font-semibold"}`}>{item.label.split(" ")[0]}</span>
           </Link>
         );
       })}
@@ -283,7 +281,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-full bg-background text-foreground md:flex">
       <Sidebar />
-      <main className="h-screen flex-1 overflow-auto pb-20 md:pb-0">{children}</main>
+      <main className="h-screen flex-1 overflow-auto bg-[#f8fafc] text-[#1e293b] pb-20 md:pb-0">{children}</main>
       <MobileNav />
     </div>
   );
