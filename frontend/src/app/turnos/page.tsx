@@ -103,7 +103,7 @@ export default function TurnosPage() {
       });
       await loadBoard();
     } catch (moveError) {
-      setError(moveError instanceof Error ? moveError.message : "No se pudo mover el vehiculo.");
+      setError(moveError instanceof Error ? moveError.message : "No se pudo mover el vehículo.");
     } finally {
       setMovingId(null);
       setDragOverColumn(null);
@@ -220,12 +220,12 @@ export default function TurnosPage() {
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-[1450px] flex-col animate-in fade-in p-6 duration-500 md:p-10">
+    <div className="mx-auto flex min-h-[100dvh] max-w-[1450px] flex-col animate-in fade-in p-4 pb-24 duration-500 sm:p-6 md:min-h-screen md:p-10 md:pb-10">
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">Tablero de Taller</h1>
           <p className="mt-1 font-medium text-gray-500">
-            Arrastra tarjetas entre columnas, edita ordenes y registra avances sin salir del tablero.
+            Arrastra tarjetas entre columnas, edita órdenes y registra avances sin salir del tablero.
           </p>
         </div>
 
@@ -250,9 +250,9 @@ export default function TurnosPage() {
         Arrastrar y soltar ya está activo. Desde una tarjeta de orden también podés editar mecánico, diagnóstico, costos y la actualización visible para el cliente.
       </div>
 
-      <div className="flex flex-1 gap-6 overflow-x-auto pb-4">
+      <div className="flex flex-1 gap-4 overflow-x-auto pb-4 md:gap-6">
         {board.map((column) => (
-          <div key={column.id} className="flex min-w-[320px] max-w-[320px] flex-shrink-0 flex-col">
+          <div key={column.id} className="flex min-w-[85vw] max-w-[85vw] flex-shrink-0 flex-col sm:min-w-[320px] sm:max-w-[320px]">
             <div className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${column.color}`}>
               <span className={`h-2.5 w-2.5 rounded-full ${column.dot}`} />
               <h2 className="whitespace-nowrap font-bold">{column.title}</h2>
@@ -362,7 +362,7 @@ export default function TurnosPage() {
 
               {column.items.length === 0 && (
                 <div className="flex flex-1 items-center justify-center p-6 text-sm font-medium italic text-gray-400">
-                  Sin vehiculos en esta etapa
+                  Sin vehículos en esta etapa
                 </div>
               )}
             </div>
@@ -372,8 +372,8 @@ export default function TurnosPage() {
 
       {isModalOpen && (
         <>
-          <div className="fixed inset-0 z-40 bg-gray-900/30 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="fixed right-0 top-0 z-50 flex h-[100dvh] w-full max-w-md min-h-0 flex-col bg-white shadow-2xl">
+          <div className="fixed inset-0 z-[70] bg-gray-900/30 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+          <div className="fixed right-0 top-0 z-[80] flex h-[100dvh] w-full max-w-md min-h-0 flex-col bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
               <h2 className="text-xl font-extrabold text-gray-900">Nuevo Turno</h2>
               <button
@@ -387,11 +387,11 @@ export default function TurnosPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-y-contain p-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-y-contain p-4 pb-28 sm:p-6 sm:pb-24">
                 <section>
                   <div className="mb-4 flex items-center gap-2">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 font-bold text-blue-600">1</div>
-                    <h3 className="text-lg font-bold text-gray-900">Datos del Vehiculo</h3>
+                    <h3 className="text-lg font-bold text-gray-900">Datos del vehículo</h3>
                   </div>
                   <div className="space-y-4">
                     <Input label="Patente" value={form.plate} onChange={(value) => setForm((prev) => ({ ...prev, plate: value.toUpperCase() }))} required />
@@ -410,7 +410,7 @@ export default function TurnosPage() {
                   </div>
                   <div className="space-y-4">
                     <label className="block text-sm font-bold text-gray-700">
-                      Descripcion del problema
+                      Descripción del problema
                       <textarea
                         rows={3}
                         value={form.reason}
@@ -433,13 +433,13 @@ export default function TurnosPage() {
                   </div>
                   <div className="space-y-4">
                     <Input label="Nombre completo" value={form.clientName} onChange={(value) => setForm((prev) => ({ ...prev, clientName: value }))} required />
-                    <Input label="Telefono" type="tel" value={form.phone} onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))} />
+                    <Input label="Teléfono" type="tel" value={form.phone} onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))} />
                     <Input label="Email" type="email" value={form.email} onChange={(value) => setForm((prev) => ({ ...prev, email: value }))} />
                   </div>
                 </section>
               </div>
 
-              <div className="flex gap-3 border-t border-gray-100 bg-gray-50 p-6">
+              <div className="sticky bottom-0 flex gap-3 border-t border-gray-100 bg-gray-50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -452,7 +452,7 @@ export default function TurnosPage() {
                   disabled={saving}
                   className="flex-1 rounded-xl bg-blue-600 py-3 font-bold text-white shadow-md transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {saving ? "Guardando..." : "Crear Turno"}
+                  {saving ? "Guardando..." : "Guardar turno"}
                 </button>
               </div>
             </form>
@@ -462,8 +462,8 @@ export default function TurnosPage() {
 
       {isEditorOpen && selectedOrder && (
         <>
-          <div className="fixed inset-0 z-40 bg-gray-900/30 backdrop-blur-sm" onClick={() => setIsEditorOpen(false)} />
-          <div className="fixed right-0 top-0 z-50 flex h-[100dvh] w-full max-w-xl min-h-0 flex-col bg-white shadow-2xl">
+          <div className="fixed inset-0 z-[70] bg-gray-900/30 backdrop-blur-sm" onClick={() => setIsEditorOpen(false)} />
+          <div className="fixed right-0 top-0 z-[80] flex h-[100dvh] w-full max-w-xl min-h-0 flex-col bg-white shadow-2xl">
             <div className="border-b border-gray-100 px-6 py-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -486,7 +486,7 @@ export default function TurnosPage() {
             </div>
 
             <form onSubmit={handleEditorSubmit} className="flex min-h-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-y-contain p-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-y-contain p-4 pb-28 sm:p-6 sm:pb-24">
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
                   <p className="font-semibold text-gray-900">Turno asociado</p>
                   <p className="mt-1">
@@ -497,7 +497,7 @@ export default function TurnosPage() {
                 </div>
 
                 <label className="block text-sm font-bold text-gray-700">
-                  Mecanico responsable
+                  Mecánico responsable
                   <select
                     value={editor.mechanicId}
                     onChange={(event) => setEditor((prev) => ({ ...prev, mechanicId: event.target.value }))}
@@ -513,7 +513,7 @@ export default function TurnosPage() {
                 </label>
 
                 <label className="block text-sm font-bold text-gray-700">
-                  Diagnostico
+                  Diagnóstico
                   <textarea
                     rows={5}
                     value={editor.diagnostic}
@@ -529,7 +529,7 @@ export default function TurnosPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <Input
-                    label="Proxima revision"
+                    label="Próxima revisión"
                     type="date"
                     value={editor.recommendedNextRevisionDate}
                     onChange={(value) =>
@@ -537,7 +537,7 @@ export default function TurnosPage() {
                     }
                   />
                   <Input
-                    label="Nota de revision"
+                    label="Nota de revisión"
                     value={editor.recommendedNextRevisionNote}
                     onChange={(value) =>
                       setEditor((prev) => ({ ...prev, recommendedNextRevisionNote: value }))
@@ -546,10 +546,10 @@ export default function TurnosPage() {
                 </div>
 
                 <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                  <p className="text-sm font-bold text-blue-900">Actualizacion para cliente</p>
+                  <p className="text-sm font-bold text-blue-900">Actualización para cliente</p>
                   <div className="mt-3 space-y-3">
                     <Input
-                      label="Titulo"
+                      label="Título"
                       value={editor.clientUpdateTitle}
                       onChange={(value) => setEditor((prev) => ({ ...prev, clientUpdateTitle: value }))}
                     />
@@ -587,7 +587,7 @@ export default function TurnosPage() {
                 )}
               </div>
 
-              <div className="flex gap-3 border-t border-gray-100 bg-gray-50 p-6">
+              <div className="sticky bottom-0 flex gap-3 border-t border-gray-100 bg-gray-50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
                 <button
                   type="button"
                   onClick={() => setIsEditorOpen(false)}
@@ -614,15 +614,15 @@ export default function TurnosPage() {
 function getAvailableTargets(columnId: BoardColumnId) {
   if (columnId === "agendados") {
     return [
-      { id: "diagnostico" as const, label: "Ingresar a diagnostico" },
-      { id: "reparacion" as const, label: "Pasar a reparacion" },
+      { id: "diagnostico" as const, label: "Ingresar a diagnóstico" },
+      { id: "reparacion" as const, label: "Pasar a reparación" },
       { id: "listos" as const, label: "Marcar listo" },
     ];
   }
 
   if (columnId === "diagnostico") {
     return [
-      { id: "reparacion" as const, label: "Mover a reparacion" },
+      { id: "reparacion" as const, label: "Mover a reparación" },
       { id: "listos" as const, label: "Marcar listo" },
     ];
   }
@@ -631,7 +631,7 @@ function getAvailableTargets(columnId: BoardColumnId) {
     return [{ id: "listos" as const, label: "Marcar listo" }];
   }
 
-  return [{ id: "diagnostico" as const, label: "Reabrir diagnostico" }];
+  return [{ id: "diagnostico" as const, label: "Reabrir diagnóstico" }];
 }
 
 function Input({

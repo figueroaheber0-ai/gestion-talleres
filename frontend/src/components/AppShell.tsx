@@ -225,22 +225,22 @@ function MobileNav() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  const mobileItems = NAV_ITEMS.filter((item) => user && item.roles.includes(user.role)).slice(0, 4);
+  const mobileItems = NAV_ITEMS.filter((item) => user && item.roles.includes(user.role));
 
   return (
-    <nav className="panel-shell fixed bottom-0 z-50 flex w-full justify-around border-t border-white/12 bg-[#190B47] p-2 pb-safe backdrop-blur md:hidden">
+    <nav className="panel-shell fixed bottom-0 z-50 flex w-full gap-2 overflow-x-auto border-t border-white/12 bg-[#190B47] p-2 pb-safe backdrop-blur md:hidden">
       {mobileItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`flex min-w-[64px] flex-col items-center rounded-xl px-2 py-2 transition-colors ${
+            className={`flex min-w-[82px] shrink-0 flex-col items-center rounded-xl px-2 py-2 transition-colors ${
               isActive ? "bg-[#FFE707]/12 text-[#FFE707]" : "text-white hover:bg-white/5 hover:text-white"
             }`}
           >
             {item.icon}
-            <span className={`mt-1 text-xs ${isActive ? "font-bold" : "font-semibold"}`}>{item.label.split(" ")[0]}</span>
+            <span className={`mt-1 whitespace-nowrap text-[11px] ${isActive ? "font-bold" : "font-semibold"}`}>{item.label}</span>
           </Link>
         );
       })}
@@ -326,7 +326,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-full bg-background text-foreground md:flex">
       <Sidebar />
-      <main className="h-screen flex-1 overflow-auto bg-[#f8fafc] pb-20 text-[#1e293b] md:pb-0">{children}</main>
+      <main className="h-[100dvh] min-h-0 flex-1 overflow-y-auto bg-[#f8fafc] pb-24 text-[#1e293b] md:h-screen md:pb-0">{children}</main>
       <MobileNav />
     </div>
   );

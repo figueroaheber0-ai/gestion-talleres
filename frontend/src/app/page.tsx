@@ -26,11 +26,16 @@ export default function Home() {
 
       try {
         setError("");
-        const dashboard = await fetchDashboardSummary(token);
-        setData(dashboard);
         if (user?.role === "owner") {
-          setAccountStatus(await fetchOwnerAccountStatus(token));
+          const [dashboard, ownerStatus] = await Promise.all([
+            fetchDashboardSummary(token),
+            fetchOwnerAccountStatus(token),
+          ]);
+          setData(dashboard);
+          setAccountStatus(ownerStatus);
         } else {
+          const dashboard = await fetchDashboardSummary(token);
+          setData(dashboard);
           setAccountStatus(null);
         }
       } catch (loadError) {
